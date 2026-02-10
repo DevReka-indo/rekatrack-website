@@ -598,17 +598,6 @@ class AdminWebController extends Controller
     }
 
 
-
-    /**
-     * Normalize item description to satisfy non-null DB constraint.
-     */
-    private function normalizeDescription(?string $description): string
-    {
-        $normalized = trim((string) $description);
-
-        return $normalized === '' ? '-' : $normalized;
-    }
-
     /**
      * Handle shipping error consistently and provide user-friendly feedback.
      */
