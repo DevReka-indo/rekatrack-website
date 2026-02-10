@@ -19,6 +19,7 @@ class TravelDocument extends Model
         'send_to',
         'po_number',
         'reference_number',
+        'reference_date',
         'project',
         'status',
         'start_time',
@@ -29,6 +30,7 @@ class TravelDocument extends Model
         'deleted_at',
         'posting_date',        // Dirubah dari date_no_travel_document
         'document_date',       // Kolom baru
+        'reference_date',
         'start_time',
         'end_time'
     ];
