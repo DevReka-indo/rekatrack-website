@@ -28,8 +28,9 @@ class TrackingController extends Controller
             ->get();
 
         $deliveredShippings = TravelDocument::where('status', 'Terkirim')
-            ->select('id', 'no_travel_document', 'send_to', 'project', 'posting_date')
-            ->orderBy('posting_date', 'desc')
+            ->select('id', 'no_travel_document', 'send_to', 'project', 'posting_date', 'end_time')
+            ->orderByDesc('end_time')
+            ->orderByDesc('id')
             ->limit(5)
             ->get();
 
@@ -139,12 +140,17 @@ class TrackingController extends Controller
     // }
     public function search(Request $request)
     {
-        $request->validate([
-            'no_travel_document' => 'required|string|max:100'
-        ]);
+        $search = trim((string) $request->query('search', $request->query('no_travel_document', '')));
 
-        // Ambil travel document + relasi trackingSystems
-        $travelDocument = TravelDocument::where('no_travel_document', $request->no_travel_document)
+        if ($search === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nomor SJN harus diisi'
+            ], 422);
+        }
+
+        // Cari berdasarkan nomor SJN / no_travel_document
+        $travelDocument = TravelDocument::where('no_travel_document', $search)
             ->with('trackingSystems')
             ->first();
 
