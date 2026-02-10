@@ -1,3 +1,4 @@
+{{-- resources/views/General/tracker-show.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Detail Tracking | RekaTrack')
@@ -5,60 +6,85 @@
 
 @section('content')
 <div class="row">
-  <!-- Info Panel -->
+  {{-- Info Panel --}}
   <div class="col-12 mb-3">
     <div class="card">
       <div class="card-body">
-        <div class="row">
-          <div class="col-md-6">
-            <h5 class="mb-3">Informasi Tracking</h5>
-            <table class="table table-borderless table-sm">
-              <tr>
-                <td width="150"><strong>Track ID</strong></td>
-                <td>: {{ $trackingSystem->track_id }}</td>
-              </tr>
-              <tr>
-                <td><strong>Status</strong></td>
-                <td>: <span class="badge badge-success">Active</span></td>
-              </tr>
-              <tr>
-                <td><strong>Total Lokasi</strong></td>
-                <td>: {{ $locations->count() }} titik</td>
-              </tr>
-            </table>
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+          <div>
+            <h5 class="mb-1">Detail Tracking</h5>
+            <div class="text-muted">
+              Nomor SJN: <strong id="sjnText">{{ $travelDocument->no_travel_document ?? '-' }}</strong>
+            </div>
           </div>
-          <div class="col-md-6">
-            <h5 class="mb-3">Lokasi Terakhir</h5>
-            <table class="table table-borderless table-sm">
-              <tr>
-                <td width="150"><strong>Latitude</strong></td>
-                <td>: {{ $locations->last()->latitude ?? '-' }}</td>
-              </tr>
-              <tr>
-                <td><strong>Longitude</strong></td>
-                <td>: {{ $locations->last()->longitude ?? '-' }}</td>
-              </tr>
-              <tr>
-                <td><strong>Waktu</strong></td>
-                <td>: {{ $trackingSystem->updated_at->format('d/m/Y H:i:s') }}</td>
-              </tr>
-            </table>
+
+          <div class="d-flex gap-2">
+            <a href="{{ route('tracking.index') }}" class="btn btn-secondary">
+              <i class="fas fa-arrow-left me-1"></i> Kembali
+            </a>
+            <button id="btnFocus" class="btn btn-outline-primary" type="button">
+              <i class="fas fa-crosshairs me-1"></i> Fokus Rute
+            </button>
           </div>
         </div>
-        <div class="mt-3">
-          <a href="{{ route('tracking.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Kembali
-          </a>
+
+        <hr class="my-3"/>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="p-3 border rounded">
+              <div class="text-muted">Status</div>
+              <div class="fs-6">
+                <span id="statusBadge" class="badge badge-secondary">-</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="p-3 border rounded">
+              <div class="text-muted">Titik Lokasi</div>
+              <div class="fs-6">
+                <strong id="totalPoints">0</strong> titik
+              </div>
+              <div class="small text-muted mt-1">Ditampilkan setelah filter duplikat.</div>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="p-3 border rounded">
+              <div class="text-muted">Update Terakhir</div>
+              <div class="fs-6">
+                <strong id="lastTime">-</strong>
+              </div>
+              <div class="small text-muted mt-1">
+                Lat: <span id="lastLat">-</span> | Lng: <span id="lastLng">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 small text-muted">
+          Auto-refresh data: <strong id="pollState">ON</strong> (setiap <span id="pollEvery">10</span> detik)
+          <button id="btnTogglePoll" class="btn btn-sm btn-link ms-2 p-0 align-baseline" type="button">Matikan</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Map -->
+  {{-- Map --}}
   <div class="col-12">
     <div class="card">
-      <div class="card-body p-0" style="height: 600px; position: relative;">
+      <div class="card-body p-0" style="height: 650px; position: relative;">
         <div id="map" class="w-100 h-100"></div>
+
+        {{-- Lightweight loading overlay --}}
+        <div id="loadingOverlay" style="
+          position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+          background: rgba(255,255,255,0.6); z-index: 999;">
+          <div class="px-3 py-2 bg-white border rounded shadow-sm">
+            <i class="fas fa-spinner fa-spin me-1"></i> Memuat data tracking...
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -66,91 +92,338 @@
 @endsection
 
 @push('styles')
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    #map {
-      height: 100%;
-      width: 100%;
-      border-radius: 0.5rem;
-    }
-    .leaflet-container {
-      z-index: 1;
-    }
-  </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  #map { height: 100%; width: 100%; border-radius: 0.5rem; }
+  .leaflet-container { z-index: 1; }
+</style>
 @endpush
 
 @push('scripts')
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // =========================
+  // CONFIG
+  // =========================
+  const SJN = @json($travelDocument->no_travel_document ?? '');
+  const SEARCH_URL = @json(route('tracking.search'));
+  const ROUTE_URL  = @json(route('tracking.route'));
+  const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-  <script>
-    // Data lokasi dari controller
-    const locations = @json($locations);
-    const initialLocation = @json($initialLocation);
+  // Polling
+  const POLL_SECONDS = 10;
+  let pollEnabled = true;
+  let pollTimer = null;
 
-    // Inisialisasi peta
-    var map = L.map("map").setView(initialLocation, 13);
+  // Map state
+  let map;
+  let startMarker = null;
+  let endMarker = null;
+  let gpsLine = null;      // polyline from points (fallback)
+  let roadLine = null;     // ORS polyline
+  let lastRouteSig = '';   // to avoid re-request ORS on same endpoints
+  let lastEndLatLng = null;
 
-    L.tileLayer("http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  // =========================
+  // ICONS
+  // =========================
+  function iconRed() {
+    return L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41]
+    });
+  }
+
+  function iconGreen() {
+    return L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41]
+    });
+  }
+
+  // =========================
+  // UI HELPERS
+  // =========================
+  function setLoading(isLoading) {
+    const el = document.getElementById('loadingOverlay');
+    if (el) el.style.display = isLoading ? 'flex' : 'none';
+  }
+
+  function setStatusBadge(statusText) {
+    const badge = document.getElementById('statusBadge');
+    if (!badge) return;
+
+    const s = (statusText || '').toString();
+    badge.textContent = s || '-';
+
+    const lower = s.toLowerCase();
+    badge.className = 'badge';
+
+    if (!s) badge.classList.add('badge-secondary');
+    else if (lower.includes('sedang')) badge.classList.add('badge-info');
+    else if (lower.includes('terkirim')) badge.classList.add('badge-success');
+    else badge.classList.add('badge-secondary');
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return '-';
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return ts;
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    } catch {
+      return ts;
+    }
+  }
+
+  function notify(type, message) {
+    if (window.$?.notify) {
+      $.notify({ message }, { type, placement: { from: 'top', align: 'right' }, time: 4000 });
+    } else {
+      console[type === 'error' ? 'error' : 'log'](message);
+    }
+  }
+
+  // =========================
+  // DATA HELPERS
+  // =========================
+  function toLatLngs(locations) {
+    // Ensure numeric and sorted by timestamp asc
+    const sorted = [...locations].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+    return sorted
+      .filter(l => l && l.latitude != null && l.longitude != null)
+      .map(l => [parseFloat(l.latitude), parseFloat(l.longitude)]);
+  }
+
+  function signatureForRoute(latLngs) {
+    // Use first+last for signature to prevent repeated ORS calls
+    if (!latLngs?.length) return '';
+    const a = latLngs[0];
+    const b = latLngs[latLngs.length - 1];
+    return `${a[0].toFixed(5)},${a[1].toFixed(5)}|${b[0].toFixed(5)},${b[1].toFixed(5)}`;
+  }
+
+  function setInfo(locations, status) {
+    setStatusBadge(status);
+
+    const total = document.getElementById('totalPoints');
+    if (total) total.textContent = String(locations?.length || 0);
+
+    const last = locations?.length ? locations[locations.length - 1] : null;
+    document.getElementById('lastTime').textContent = fmtTime(last?.timestamp);
+    document.getElementById('lastLat').textContent = last?.latitude ?? '-';
+    document.getElementById('lastLng').textContent = last?.longitude ?? '-';
+  }
+
+  // =========================
+  // MAP INIT & UPDATE
+  // =========================
+  function initMap() {
+    map = L.map('map').setView([-2.5489, 118.0132], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 18,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Tambahkan marker untuk setiap lokasi
-    locations.forEach((loc, index) => {
-      const isLast = index === locations.length - 1;
+    document.getElementById('btnFocus')?.addEventListener('click', () => focusRoute());
+  }
 
-      const icon = isLast
-        ? L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-          })
-        : null;
+  function clearLinesOnly() {
+    if (gpsLine) { map.removeLayer(gpsLine); gpsLine = null; }
+    if (roadLine) { map.removeLayer(roadLine); roadLine = null; }
+  }
 
-      const marker = icon
-        ? L.marker([loc.latitude, loc.longitude], { icon: icon })
-        : L.marker([loc.latitude, loc.longitude]);
+  function updateMarkers(latLngs, locations) {
+    if (!latLngs.length) return;
 
-      marker.addTo(map)
-        .bindPopup(`
-          <strong>${isLast ? 'Lokasi Terakhir' : 'Titik ' + (index + 1)}</strong><br>
-          Lat: ${loc.latitude}<br>
-          Lng: ${loc.longitude}
-        `);
+    const start = latLngs[0];
+    const end = latLngs[latLngs.length - 1];
 
-      if (isLast) {
-        marker.openPopup();
+    if (!startMarker) {
+      startMarker = L.marker(start, { icon: iconGreen() }).addTo(map).bindPopup('📍 Titik Awal');
+    } else {
+      startMarker.setLatLng(start);
+    }
+
+    if (!endMarker) {
+      endMarker = L.marker(end, { icon: iconRed() }).addTo(map);
+    } else {
+      endMarker.setLatLng(end);
+    }
+
+    const last = locations?.length ? locations[locations.length - 1] : null;
+    endMarker.bindPopup(`
+      <strong>🚚 Lokasi Terakhir</strong><br>
+      ${last?.latitude ?? '-'}, ${last?.longitude ?? '-'}<br>
+      <small>${fmtTime(last?.timestamp)}</small>
+    `);
+
+    // open popup only when end moved significantly (prevents annoying reopen every poll)
+    const moved = !lastEndLatLng || (lastEndLatLng[0] !== end[0] || lastEndLatLng[1] !== end[1]);
+    if (moved) {
+      endMarker.openPopup();
+      lastEndLatLng = end;
+    }
+  }
+
+  function drawGpsLine(latLngs) {
+    // Keep simple fallback line (cheap & reliable)
+    if (gpsLine) gpsLine.setLatLngs(latLngs);
+    else gpsLine = L.polyline(latLngs, { weight: 4 }).addTo(map);
+  }
+
+  function focusRoute() {
+    const boundsLayers = [];
+    if (roadLine) boundsLayers.push(roadLine);
+    else if (gpsLine) boundsLayers.push(gpsLine);
+
+    if (boundsLayers.length) {
+      map.fitBounds(boundsLayers[0].getBounds(), { padding: [60, 60] });
+      return;
+    }
+
+    if (endMarker) map.setView(endMarker.getLatLng(), 15);
+  }
+
+  async function drawRoadRouteIfNeeded(latLngs) {
+    // ORS request can be heavy; only do it when endpoints changed and points >= 2
+    if (!latLngs || latLngs.length < 2) return;
+
+    const sig = signatureForRoute(latLngs);
+    if (!sig || sig === lastRouteSig) return;
+    lastRouteSig = sig;
+
+    // Keep payload limited (avoid ORS fail)
+    let waypoints = latLngs;
+    const MAX_WP = 50;
+    if (waypoints.length > MAX_WP) {
+      const step = Math.ceil(waypoints.length / MAX_WP);
+      const sampled = [];
+      for (let i = 0; i < waypoints.length; i += step) sampled.push(waypoints[i]);
+      if (sampled[sampled.length - 1] !== waypoints[waypoints.length - 1]) {
+        sampled.push(waypoints[waypoints.length - 1]);
       }
+      waypoints = sampled;
+    }
+
+    try {
+      const res = await fetch(ROUTE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(CSRF ? { 'X-CSRF-TOKEN': CSRF } : {}),
+        },
+        body: JSON.stringify({ waypoints })
+      });
+
+      const route = await res.json();
+      const coords = route?.features?.[0]?.geometry?.coordinates;
+      if (!coords?.length) return;
+
+      const roadPath = coords.map(c => [c[1], c[0]]);
+
+      if (roadLine) roadLine.setLatLngs(roadPath);
+      else roadLine = L.polyline(roadPath, { weight: 5, opacity: 0.7 }).addTo(map);
+
+    } catch (e) {
+      // If ORS fails, we still have gpsLine, so just ignore
+      console.warn('ORS route failed:', e);
+    }
+  }
+
+  // =========================
+  // FETCH & RENDER
+  // =========================
+  async function fetchTracking() {
+    if (!SJN) {
+      notify('error', 'Nomor SJN tidak valid.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const url = `${SEARCH_URL}?no_travel_document=${encodeURIComponent(SJN)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data?.success) {
+        setLoading(false);
+        notify('error', data?.message || 'Gagal memuat data tracking.');
+        return;
+      }
+
+      const locations = Array.isArray(data.locations) ? data.locations : [];
+      setInfo(locations, data.status);
+
+      if (!locations.length) {
+        clearLinesOnly();
+        setLoading(false);
+        notify('warning', 'Belum ada data lokasi untuk pengiriman ini.');
+        return;
+      }
+
+      const latLngs = toLatLngs(locations);
+
+      // Update marker + line without recreating map
+      updateMarkers(latLngs, locations);
+      drawGpsLine(latLngs);
+
+      // Optional ORS route (only when endpoints changed)
+      await drawRoadRouteIfNeeded(latLngs);
+
+      // First load: fit to route
+      if (!fetchTracking._didFitOnce) {
+        fetchTracking._didFitOnce = true;
+        focusRoute();
+      }
+
+      setLoading(false);
+    } catch (e) {
+      setLoading(false);
+      notify('error', 'Gagal memuat tracking (network/server).');
+      console.error(e);
+    }
+  }
+
+  // =========================
+  // POLLING CONTROL
+  // =========================
+  function startPolling() {
+    document.getElementById('pollEvery').textContent = String(POLL_SECONDS);
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+      if (pollEnabled) fetchTracking();
+    }, POLL_SECONDS * 1000);
+  }
+
+  function updatePollUI() {
+    const state = document.getElementById('pollState');
+    const btn = document.getElementById('btnTogglePoll');
+    if (state) state.textContent = pollEnabled ? 'ON' : 'OFF';
+    if (btn) btn.textContent = pollEnabled ? 'Matikan' : 'Nyalakan';
+  }
+
+  // =========================
+  // BOOT
+  // =========================
+  document.addEventListener('DOMContentLoaded', async () => {
+    initMap();
+    updatePollUI();
+
+    document.getElementById('btnTogglePoll')?.addEventListener('click', () => {
+      pollEnabled = !pollEnabled;
+      updatePollUI();
+      if (pollEnabled) fetchTracking();
     });
 
-    // Jika ada lebih dari 1 titik, gambar rute
-    if (locations.length > 1) {
-      const latLngs = locations.map(loc => [loc.latitude, loc.longitude]);
-      const start = latLngs[0];
-      const end = latLngs[latLngs.length - 1];
-      const apiKey = '5b3ce3597851110001cf6248b4c0aaa51d204cea888ada05975d8638';
-
-      // Actual
-      L.polyline(latLngs, { color: '#1572e8', weight: 5 }).addTo(map);
-
-      fetch(`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start[1]},${start[0]}&end=${end[1]},${end[0]}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.features && data.features[0]) {
-            const route = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-            L.polyline(route, { color: '#1572e8', weight: 4, opacity: 0.7 }).addTo(map);
-            map.fitBounds(L.latLngBounds(route));
-          }
-        })
-        .catch(err => {
-          console.warn('Failed to fetch route, showing direct line:', err);
-          // Fallback: buat garis langsung
-          L.polyline(latLngs, { color: '#6c757d', weight: 2, dashArray: '5,5' }).addTo(map);
-          map.fitBounds(L.latLngBounds(latLngs));
-        });
-    }
-  </script>
+    await fetchTracking();
+    startPolling();
+  });
+</script>
 @endpush

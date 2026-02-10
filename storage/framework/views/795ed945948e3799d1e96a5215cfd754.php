@@ -98,7 +98,7 @@
                                 </thead>
                                 <tbody>
                                     <?php $__currentLoopData = $activeShippings; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $shipping): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                        <tr style="cursor: pointer;" onclick="loadTracking('<?php echo e($shipping->no_travel_document); ?>')">
+                                        <tr style="cursor: pointer;" onclick="goDetail('<?php echo e($shipping->id); ?>')">
                                             <td class="text-primary fw-bold"><?php echo e($shipping->no_travel_document); ?></td>
                                             <td>
                                                 <i class="fas fa-map-marker-alt text-danger me-1"></i>
@@ -151,7 +151,7 @@
                                 </thead>
                                 <tbody>
                                     <?php $__currentLoopData = $deliveredShippings; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $shipping): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                        <tr style="cursor: pointer;" onclick="loadTracking('<?php echo e($shipping->no_travel_document); ?>')">
+                                        <tr style="cursor: pointer;" onclick="goDetail('<?php echo e($shipping->id); ?>')">
                                             <td class="text-primary fw-bold"><?php echo e($shipping->no_travel_document); ?></td>
                                             <td>
                                                 <i class="fas fa-map-marker-alt text-danger me-1"></i>
@@ -385,7 +385,7 @@
         function searchTracking() {
             const sjn = document.getElementById("search")?.value?.trim();
             if (!sjn) return showAlert('warning', 'Masukkan nomor surat jalan');
-            loadTracking(sjn);
+            goDetail(sjn);
         }
 
         // async function getReverseGeocode(lat, lng) {
@@ -450,30 +450,84 @@
             }, 500);
         }
 
-        // Refresh seluruh halaman setiap 30 detik
-        setInterval(() => {
-            window.location.reload();
-        }, 30000);
+        function goDetail(id) {
+            const base = <?php echo json_encode(url('/tracking'), 15, 512) ?>;
+            window.location.href = `${base}/${encodeURIComponent(id)}`;
+        }
 
-        // Atau hanya refresh data tabel (lebih ringan)
-        setInterval(() => {
-            fetch(window.location.href)
-                .then(response => response.text())
-                .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, "text/html");
+        const ACTIVE_LAST_URL = <?php echo json_encode(route('tracking.active-last'), 15, 512) ?>;
+        const markersById = new Map(); // id => marker
 
-                    // Ganti hanya bagian tabel aktif
-                    document.querySelector('.card:has(h4:contains("Pengiriman Aktif"))')
-                        .innerHTML = doc.querySelector('.card:has(h4:contains("Pengiriman Aktif"))')
-                        .innerHTML;
+        async function fetchActiveLast() {
+            try {
+                const res = await fetch(ACTIVE_LAST_URL, { headers: { 'Accept': 'application/json' } });
+                const json = await res.json();
+                if (!json.success) return;
 
-                    // Ganti tabel terkirim juga
-                    document.querySelector('.card:has(h4:contains("Pengiriman Terkirim"))')
-                        .innerHTML = doc.querySelector('.card:has(h4:contains("Pengiriman Terkirim"))')
-                        .innerHTML;
-                });
-        }, 30000);
+                const items = json.data || [];
+                const activeSet = new Set(items.map(i => String(i.id)));
+
+                for (const item of items) {
+                    const id = item.id;
+                    const sjn = item.no_travel_document;
+                    const loc = item.last_location;
+                    if (!id || !loc) continue;
+
+                    const latlng = [parseFloat(loc.latitude), parseFloat(loc.longitude)];
+                    if (!isFinite(latlng[0]) || !isFinite(latlng[1])) continue;
+
+                    let marker = markersById.get(String(id));
+                    if (!marker) {
+                        marker = L.marker(latlng, { icon: redIcon() }).addTo(map);
+                        markersById.set(String(id), marker);
+                    } else {
+                        marker.setLatLng(latlng);
+                    }
+
+                    const safeId = String(id).replace(/'/g, "\\'");
+                    marker.bindPopup(`
+                        <strong>${sjn || '-'}</strong><br>
+                        ${item.send_to || '-'}<br>
+                        ${item.project || '-'}<br>
+                        <small>${loc.timestamp || ''}</small><br>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="goDetail('${safeId}')">
+                                Lihat Detail
+                            </button>
+                        </div>
+                    `, { autoClose: true, closeOnClick: true });
+                }
+
+                for (const [id, marker] of markersById.entries()) {
+                    if (!activeSet.has(id)) {
+                        map.removeLayer(marker);
+                        markersById.delete(id);
+                    }
+                }
+            } catch (e) {
+                console.warn('fetchActiveLast failed:', e);
+            }
+        }
+
+        function fitToActiveMarkers() {
+            const latlngs = [];
+            for (const marker of markersById.values()) {
+                latlngs.push(marker.getLatLng());
+            }
+            if (latlngs.length) {
+                map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
+            }
+        }
+
+
+            // Initial load + polling
+            fetchActiveLast().then(() => {
+            // lakukan fit sekali saja saat awal
+            fitToActiveMarkers();
+        });
+
+        setInterval(fetchActiveLast, 15000);
+
     </script>
 <?php $__env->stopPush(); ?>
 
