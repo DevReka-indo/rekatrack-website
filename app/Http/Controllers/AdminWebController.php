@@ -399,6 +399,7 @@ class AdminWebController extends Controller
             'sendTo' => 'required|string|max:255',
             'numberSJN' => 'required|string|max:100',
             'numberRef' => 'required|string|max:100',
+            'referenceDate' => 'nullable|date',
             'projectName' => 'required|string|max:255',
             'poNumber' => 'required|string|max:100',
             'documentDate' => 'nullable|date',  // Validasi untuk document_date
@@ -408,7 +409,7 @@ class AdminWebController extends Controller
             'totalSend.*' => 'required|integer|min:0',
             'qtyPreOrder.*' => 'nullable|string|max:50',
             'unitType.*' => 'required|exists:units,id',
-            'description.*' => 'required|string',
+            'description.*' => 'nullable|string',
             'information.*' => 'nullable|string',
         ];
     }
@@ -422,6 +423,7 @@ class AdminWebController extends Controller
             'sendTo.required' => 'Tujuan pengiriman harus diisi.',
             'numberSJN.required' => 'Nomor SJN harus diisi.',
             'numberRef.required' => 'Nomor referensi harus diisi.',
+            'referenceDate.date' => 'Format tanggal referensi tidak valid.',
             'projectName.required' => 'Nama proyek harus diisi.',
             'poNumber.required' => 'Nomor PO harus diisi.',
             'documentDate.date' => 'Format tanggal dokumen tidak valid.',
@@ -436,7 +438,6 @@ class AdminWebController extends Controller
             'qtyPreOrder.*.max' => ':attribute maksimal 50 karakter.',
             'unitType.*.required' => ':attribute harus diisi.',
             'unitType.*.exists' => ':attribute tidak valid.',
-            'description.*.required' => ':attribute harus diisi.',
         ];
     }
 
@@ -453,7 +454,6 @@ class AdminWebController extends Controller
             'totalSend' => 'Total kirim',
             'qtyPreOrder' => 'Qty PO',
             'unitType' => 'Satuan',
-            'description' => 'Deskripsi',
             'information' => 'Informasi',
         ];
 
@@ -493,6 +493,7 @@ class AdminWebController extends Controller
             'is_backdate' => $isBackdate,
             'send_to' => $validated['sendTo'],
             'reference_number' => $validated['numberRef'],
+            'reference_date' => $validated['referenceDate'] ?? null,
             'po_number' => $validated['poNumber'],
             'project' => $validated['projectName'],
             'status' => 'Belum terkirim',
@@ -526,6 +527,7 @@ class AdminWebController extends Controller
             'is_backdate' => $isBackdate,
             'send_to' => $validated['sendTo'],
             'reference_number' => $validated['numberRef'],
+            'reference_date' => $validated['referenceDate'] ?? null,
             'po_number' => $validated['poNumber'],
             'project' => $validated['projectName'],
             'status' => 'Belum terkirim',
@@ -564,7 +566,7 @@ class AdminWebController extends Controller
                 'total_send' => (int) $validated['totalSend'][$key],
                 'qty_po' => $qtyPo,
                 'unit_id' => $validated['unitType'][$key],
-                'description' => $validated['description'][$key],
+                'description' => $validated['description'][$key] ?? null,
                 'information' => $validated['information'][$key] ?? null,
             ];
         }

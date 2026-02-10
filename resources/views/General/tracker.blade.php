@@ -260,7 +260,7 @@
         }
 
         function loadTracking(sjn) {
-            fetch(`{{ route('tracking.search') }}?no_travel_document=${encodeURIComponent(sjn)}`)
+            fetch(`{{ route('tracking.search') }}?search=${encodeURIComponent(sjn)}`)
                 .then(res => res.json())
                 .then(async data => {
 

@@ -77,6 +77,18 @@
               @enderror
             </div>
             <div class="col-md-6">
+              <label class="form-label">Tanggal Ref</label>
+              <input
+                type="date"
+                name="referenceDate"
+                value="{{ old('referenceDate') }}"
+                class="form-control @error('referenceDate') is-invalid @enderror"
+              />
+              @error('referenceDate')
+                <div class="invalid-feedback">{{ $message }}</div>
+              @enderror
+            </div>
+            <div class="col-md-6">
               <label class="form-label">Proyek <span class="text-danger">*</span></label>
               <input
                 type="text"
@@ -205,20 +217,6 @@
                         @enderror
                       </div>
                       <div class="col-md-3">
-                        <label class="form-label">Deskripsi <span class="text-danger">*</span></label>
-                        <input
-                          type="text"
-                          name="description[]"
-                          value="{{ old("description.$index", $item['description']) }}"
-                          class="form-control @error("description.$index") is-invalid @enderror"
-                          placeholder="Spesifikasi barang"
-                          required
-                        />
-                        @error("description.$index")
-                          <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                      </div>
-                      <div class="col-md-3">
                         <label class="form-label">Keterangan</label>
                         <input
                           type="text"
@@ -306,10 +304,6 @@
             <div class="col-md-2">
               <label class="form-label">Total Kirim <span class="text-danger">*</span></label>
               <input type="number" name="totalSend[]" class="form-control" placeholder="0" required />
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Deskripsi <span class="text-danger">*</span></label>
-              <input type="text" name="description[]" class="form-control" placeholder="Spesifikasi barang" required />
             </div>
             <div class="col-md-3">
               <label class="form-label">Keterangan</label>
