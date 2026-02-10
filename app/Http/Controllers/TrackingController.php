@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TravelDocument;
 use App\Models\Location;
+use App\Models\TrackingSystem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -46,6 +47,60 @@ class TrackingController extends Controller
             'totalDelivered'
         ));
     }
+
+    public function activeLast()
+    {
+        $activeDocs = TravelDocument::whereRaw("LOWER(status) LIKE '%sedang%'")
+            ->select('id','no_travel_document','send_to','project','posting_date','status')
+            ->get();
+
+        $data = [];
+
+        foreach ($activeDocs as $td) {
+            // tracking terbaru berdasarkan time_stamp
+            $latestTs = TrackingSystem::where('travel_document_id', $td->id)
+                ->orderBy('time_stamp', 'desc')
+                ->first(['track_id','time_stamp','status']);
+
+            $lastLoc = null;
+
+            if ($latestTs && $latestTs->track_id) {
+                $lastLoc = Location::where('track_id', $latestTs->track_id)
+                    ->orderBy('time_stamp', 'desc')
+                    ->first(['latitude','longitude','time_stamp']);
+            }
+
+            $data[] = [
+                'id' => $td->id,
+                'no_travel_document' => $td->no_travel_document,
+                'send_to' => $td->send_to,
+                'project' => $td->project,
+                'status' => $td->status,
+                'last_location' => $lastLoc ? [
+                    'latitude' => (float) $lastLoc->latitude,
+                    'longitude' => (float) $lastLoc->longitude,
+                    'timestamp' => $lastLoc->time_stamp,
+                ] : null,
+            ];
+        }
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+
+    public function detail($id)
+    {
+        $travelDocument = TravelDocument::findOrFail($id);
+
+        $breadcrumbs = [
+            ['label' => 'Home', 'url' => route('shippings.index')],
+            ['label' => 'Tracking Pengiriman', 'url' => route('tracking.index')],
+            ['label' => $travelDocument->no_travel_document, 'url' => '#']
+        ];
+
+        return view('General.tracker-show', compact('travelDocument', 'breadcrumbs'));
+    }
+
 
     /**
      * Cari tracking berdasarkan no_travel_document (dipanggil via AJAX)

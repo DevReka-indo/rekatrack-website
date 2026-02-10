@@ -76,6 +76,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.index');
         Route::get('/tracking/search', [TrackingController::class, 'search'])->name('tracking.search');
         Route::post('/tracking/route', [TrackingController::class, 'getRoute'])->name('tracking.route');
+        Route::get('/tracking/active-last', [TrackingController::class, 'activeLast'])->name('tracking.active-last');
+        Route::get('/tracking/{id}', [TrackingController::class, 'detail'])
+            ->whereNumber('id')
+            ->name('tracking.detail');
 
     // Unit Routes
     Route::prefix('units')

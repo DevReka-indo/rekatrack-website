@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
 use App\Models\DeliveryConfirmation;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class DriverController extends Controller
 {
@@ -134,7 +135,7 @@ class DriverController extends Controller
             // hitung jarak dari lokasi terakhir
             $distanceFromLast = 0;
 
-            $MIN_DISTANCE_KM = 0.01; // 0.01km = 10 meter
+            $MIN_DISTANCE_KM = 0.01; // 0.1km = 100 meter
             $MIN_TIME_INTERVAL_SECONDS = 30; // 30 detik
             $MIN_STOP_TIME_SECONDS = 60; // 60 detik
 
@@ -264,6 +265,9 @@ class DriverController extends Controller
 
     public function completeDelivery(Request $request)
     {
+
+        Log::info('completeDelivery payload', $request->all());
+
         $request->validate([
             'travel_document_id' => 'required|array',
             'travel_document_id.*' => 'exists:travel_document,id',
@@ -390,16 +394,38 @@ class DriverController extends Controller
 
     public function uploadDeliveryPhoto(Request $request)
     {
+        if (!$request->hasFile('photo')) {
+            return response()->json([
+                'message' => 'Photo gagal diunggah.',
+                'data' => [
+                    'errors' => ['photo' => ['File tidak terkirim (photo missing).']]
+                ]
+            ], 422);
+        }
+
+        $file = $request->file('photo');
+
+        if (!$file->isValid()) {
+            return response()->json([
+                'message' => 'Photo gagal diunggah.',
+                'data' => [
+                    'errors' => ['photo' => ['File tidak valid.']]
+                ]
+            ], 422);
+        }
+
         $request->validate([
-            'photo' => 'required|image|mimes:jpeg,png,jpg|max:5120',
+            'photo' => 'required|file|max:5120|mimes:jpg,jpeg,png,heic,heif',
         ]);
 
-        $path = $request->file('photo')->store('delivery_photos', 'public');
+        $path = $file->store('delivery_photos', 'public');
 
         return response()->json([
             'photo_path' => $path,
         ]);
     }
+
+
     // fungsi bantu untuk menghitung jarak antara dua koordinat (Haversine Formula)
     private function calculateDistance($lat1, $lon1, $lat2, $lon2): float
     {
