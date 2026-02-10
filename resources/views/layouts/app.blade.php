@@ -89,6 +89,9 @@
             </div>
           @endif
 
+          <!-- Alert -->
+          @include('partials.alert.alert')
+
           <!-- Konten Utama -->
           @yield('content')
         </div>

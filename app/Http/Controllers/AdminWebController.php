@@ -14,6 +14,7 @@ use App\Exports\ShippingsExport;
 use App\Models\DeliveryConfirmation;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AdminWebController extends Controller
 {
@@ -155,7 +156,7 @@ class AdminWebController extends Controller
      */
     public function shippingsAddTravelDocument(Request $request)
     {
-        $validator = $this->validateTravelDocument($request);
+        $validator = $this->validateTravelDocument($request, true);
 
         if ($validator->fails()) {
             return redirect()->back()->withInput()->withErrors($validator);
@@ -172,10 +173,11 @@ class AdminWebController extends Controller
             return redirect()->route('shippings.index')->with('success', 'Data pengiriman berhasil ditambahkan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage());
+            return $this->handleShippingError(
+                $e,
+                'Terjadi kesalahan saat menyimpan data pengiriman.',
+                ['action' => 'create', 'numberSJN' => $request->input('numberSJN')],
+            )->withInput();
         }
     }
 
@@ -198,10 +200,11 @@ class AdminWebController extends Controller
             return redirect()->route('shippings.index')->with('success', 'Data pengiriman berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'Terjadi kesalahan saat memperbarui data: ' . $e->getMessage());
+            return $this->handleShippingError(
+                $e,
+                'Terjadi kesalahan saat memperbarui data pengiriman.',
+                ['action' => 'update', 'travel_document_id' => $id, 'numberSJN' => $request->input('numberSJN')],
+            )->withInput();
         }
     }
 
@@ -251,10 +254,11 @@ class AdminWebController extends Controller
                 ->with('success', 'Data pengiriman berhasil disimpan sebagai dokumen baru dengan nomor: ' . $validated['numberSJN']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage());
+            return $this->handleShippingError(
+                $e,
+                'Terjadi kesalahan saat menyimpan data pengiriman.',
+                ['action' => 'create', 'numberSJN' => $request->input('numberSJN')],
+            )->withInput();
         }
     }
 
@@ -273,9 +277,11 @@ class AdminWebController extends Controller
             return redirect()->route('shippings.index')->with('success', 'Data berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()
-                ->back()
-                ->with('error', 'Terjadi kesalahan saat menghapus data: ' . $e->getMessage());
+            return $this->handleShippingError(
+                $e,
+                'Terjadi kesalahan saat menghapus data pengiriman.',
+                ['action' => 'delete', 'travel_document_id' => $id],
+            );
         }
     }
 
@@ -381,10 +387,10 @@ class AdminWebController extends Controller
     /**
      * Validate travel document request
      */
-    private function validateTravelDocument(Request $request)
+    private function validateTravelDocument(Request $request, bool $enforceUniqueNumberSjn = false)
     {
         $attributes = $this->getValidationAttributes($request);
-        $rules = $this->getValidationRules();
+        $rules = $this->getValidationRules($enforceUniqueNumberSjn);
         $messages = $this->getValidationMessages();
 
         return Validator::make($request->all(), $rules, $messages, $attributes);
@@ -393,9 +399,9 @@ class AdminWebController extends Controller
     /**
      * Get validation rules
      */
-    private function getValidationRules(): array
+    private function getValidationRules(bool $enforceUniqueNumberSjn = false): array
     {
-        return [
+        $rules = [
             'sendTo' => 'required|string|max:255',
             'numberSJN' => 'required|string|max:100',
             'numberRef' => 'required|string|max:100',
@@ -403,15 +409,29 @@ class AdminWebController extends Controller
             'projectName' => 'required|string|max:255',
             'poNumber' => 'required|string|max:100',
             'documentDate' => 'nullable|date',  // Validasi untuk document_date
+            'itemCode' => 'required|array|min:1',
             'itemCode.*' => 'required|string|max:100',
+            'itemName' => 'required|array|min:1',
             'itemName.*' => 'required|string|max:255',
+            'quantitySend' => 'nullable|array',
             'quantitySend.*' => 'nullable|integer|min:0',
+            'totalSend' => 'required|array|min:1',
             'totalSend.*' => 'required|integer|min:0',
+            'qtyPreOrder' => 'nullable|array',
             'qtyPreOrder.*' => 'nullable|string|max:50',
+            'unitType' => 'required|array|min:1',
             'unitType.*' => 'required|exists:units,id',
-            'description.*' => 'nullable|string',
+            'description' => 'nullable|array',
+            'description.*' => 'nullable|string|max:1000',
+            'information' => 'nullable|array',
             'information.*' => 'nullable|string',
         ];
+
+        if ($enforceUniqueNumberSjn) {
+            $rules['numberSJN'] .= '|unique:travel_document,no_travel_document';
+        }
+
+        return $rules;
     }
 
     /**
@@ -422,6 +442,7 @@ class AdminWebController extends Controller
         return [
             'sendTo.required' => 'Tujuan pengiriman harus diisi.',
             'numberSJN.required' => 'Nomor SJN harus diisi.',
+            'numberSJN.unique' => 'Nomor SJN sudah digunakan. Gunakan nomor yang berbeda.',
             'numberRef.required' => 'Nomor referensi harus diisi.',
             'referenceDate.date' => 'Format tanggal referensi tidak valid.',
             'projectName.required' => 'Nama proyek harus diisi.',
@@ -436,6 +457,7 @@ class AdminWebController extends Controller
             'quantitySend.*.min' => ':attribute minimal 0.',
             'qtyPreOrder.*.string' => ':attribute harus berupa teks.',
             'qtyPreOrder.*.max' => ':attribute maksimal 50 karakter.',
+            'description.*.max' => ':attribute maksimal 1000 karakter.',
             'unitType.*.required' => ':attribute harus diisi.',
             'unitType.*.exists' => ':attribute tidak valid.',
         ];
@@ -454,6 +476,7 @@ class AdminWebController extends Controller
             'totalSend' => 'Total kirim',
             'qtyPreOrder' => 'Qty PO',
             'unitType' => 'Satuan',
+            'description' => 'Deskripsi',
             'information' => 'Informasi',
         ];
 
@@ -566,12 +589,39 @@ class AdminWebController extends Controller
                 'total_send' => (int) $validated['totalSend'][$key],
                 'qty_po' => $qtyPo,
                 'unit_id' => $validated['unitType'][$key],
-                'description' => $validated['description'][$key] ?? null,
+                'description' => $this->normalizeDescription($validated['description'][$key] ?? null),
                 'information' => $validated['information'][$key] ?? null,
             ];
         }
 
         $travelDocument->items()->createMany($items);
+    }
+
+
+
+    /**
+     * Normalize item description to satisfy non-null DB constraint.
+     */
+    private function normalizeDescription(?string $description): string
+    {
+        $normalized = trim((string) $description);
+
+        return $normalized === '' ? '-' : $normalized;
+    }
+
+    /**
+     * Handle shipping error consistently and provide user-friendly feedback.
+     */
+    private function handleShippingError(\Throwable $exception, string $userMessage, array $context = [])
+    {
+        Log::error('Shipping operation failed.', array_merge($context, [
+            'exception_message' => $exception->getMessage(),
+            'exception_class' => get_class($exception),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+        ]));
+
+        return redirect()->back()->with('error', $userMessage . ' Silakan coba lagi atau hubungi admin jika masalah berlanjut.');
     }
 
     /**
