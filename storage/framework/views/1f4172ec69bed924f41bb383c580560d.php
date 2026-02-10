@@ -372,34 +372,6 @@ endif;
 unset($__errorArgs, $__bag); ?>
                       </div>
                       <div class="col-md-3">
-                        <label class="form-label">Deskripsi <span class="text-danger">*</span></label>
-                        <input
-                          type="text"
-                          name="description[]"
-                          value="<?php echo e(old("description.$index", $item['description'])); ?>"
-                          class="form-control <?php $__errorArgs = ["description.$index"];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?> is-invalid <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?>"
-                          placeholder="Spesifikasi barang"
-                          required
-                        />
-                        <?php $__errorArgs = ["description.$index"];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?>
-                          <div class="invalid-feedback"><?php echo e($message); ?></div>
-                        <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?>
-                      </div>
-                      <div class="col-md-3">
                         <label class="form-label">Keterangan</label>
                         <input
                           type="text"
@@ -501,10 +473,6 @@ unset($__errorArgs, $__bag); ?>
             <div class="col-md-2">
               <label class="form-label">Total Kirim <span class="text-danger">*</span></label>
               <input type="number" name="totalSend[]" class="form-control" placeholder="0" required />
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Deskripsi <span class="text-danger">*</span></label>
-              <input type="text" name="description[]" class="form-control" placeholder="Spesifikasi barang" required />
             </div>
             <div class="col-md-3">
               <label class="form-label">Keterangan</label>
