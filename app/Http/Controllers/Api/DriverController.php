@@ -134,7 +134,7 @@ class DriverController extends Controller
             // hitung jarak dari lokasi terakhir
             $distanceFromLast = 0;
 
-            $MIN_DISTANCE_KM = 0.1; // 0.1km = 100 meter
+            $MIN_DISTANCE_KM = 0.01; // 0.01km = 10 meter
             $MIN_TIME_INTERVAL_SECONDS = 30; // 30 detik
             $MIN_STOP_TIME_SECONDS = 60; // 60 detik
 
@@ -150,7 +150,7 @@ class DriverController extends Controller
                 } elseif ($distanceFromLast < $MIN_DISTANCE_KM && $secondsDiff < $MIN_TIME_INTERVAL_SECONDS && $track->locations()->count() > 0) {
                     $responses[] = [
                         'travel_document_id' => $documentId,
-                        'message' => 'Lokasi terlalu dekat (<100m) atau terlalu cepat, tidak disimpan.',
+                        'message' => 'Lokasi terlalu dekat (<10m) atau terlalu cepat, tidak disimpan.',
                         'distance_m' => round($distanceFromLast * 1000, 1),
                         'status' => 'skipped',
                     ];

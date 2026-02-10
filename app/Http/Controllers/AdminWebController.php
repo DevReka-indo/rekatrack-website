@@ -408,7 +408,7 @@ class AdminWebController extends Controller
             'totalSend.*' => 'required|integer|min:0',
             'qtyPreOrder.*' => 'nullable|string|max:50',
             'unitType.*' => 'required|exists:units,id',
-            'description.*' => 'required|string',
+            'description.*' => 'nullable|string',
             'information.*' => 'nullable|string',
         ];
     }
@@ -436,7 +436,6 @@ class AdminWebController extends Controller
             'qtyPreOrder.*.max' => ':attribute maksimal 50 karakter.',
             'unitType.*.required' => ':attribute harus diisi.',
             'unitType.*.exists' => ':attribute tidak valid.',
-            'description.*.required' => ':attribute harus diisi.',
         ];
     }
 
@@ -453,7 +452,6 @@ class AdminWebController extends Controller
             'totalSend' => 'Total kirim',
             'qtyPreOrder' => 'Qty PO',
             'unitType' => 'Satuan',
-            'description' => 'Deskripsi',
             'information' => 'Informasi',
         ];
 
@@ -564,7 +562,7 @@ class AdminWebController extends Controller
                 'total_send' => (int) $validated['totalSend'][$key],
                 'qty_po' => $qtyPo,
                 'unit_id' => $validated['unitType'][$key],
-                'description' => $validated['description'][$key],
+                'description' => $validated['description'][$key] ?? null,
                 'information' => $validated['information'][$key] ?? null,
             ];
         }
