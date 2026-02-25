@@ -87,18 +87,7 @@
                 <div class="invalid-feedback">{{ $message }}</div>
               @enderror
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Tanggal Ref</label>
-              <input
-                type="date"
-                name="referenceDate"
-                value="{{ old('referenceDate', $travelDocument->reference_date ? \Carbon\Carbon::parse($travelDocument->reference_date)->format('Y-m-d') : '') }}"
-                class="form-control @error('referenceDate') is-invalid @enderror"
-              />
-              @error('referenceDate')
-                <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
-            </div>
+
             <div class="col-md-6">
               <label class="form-label">Proyek <span class="text-danger">*</span></label>
               <input
@@ -113,6 +102,20 @@
                 <div class="invalid-feedback">{{ $message }}</div>
               @enderror
             </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Tanggal Ref</label>
+              <input
+                type="date"
+                name="referenceDate"
+                value="{{ old('referenceDate', $travelDocument->reference_date ? \Carbon\Carbon::parse($travelDocument->reference_date)->format('Y-m-d') : '') }}"
+                class="form-control @error('referenceDate') is-invalid @enderror"
+              />
+              @error('referenceDate')
+                <div class="invalid-feedback">{{ $message }}</div>
+              @enderror
+            </div>
+
             <div class="col-md-6">
               <label class="form-label">Nomor PO <span class="text-danger">*</span></label>
               <input
@@ -126,6 +129,20 @@
               @error('poNumber')
                 <div class="invalid-feedback">{{ $message }}</div>
               @enderror
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Jenis Pengiriman</label>
+                <select name="deliveryType" class="form-control" required>
+                    <option value="Dalam Kota"
+                        {{ old('deliveryType', $travelDocument->delivery_type) == 'Dalam Kota' ? 'selected' : '' }}>
+                        Dalam Kota
+                    </option>
+                    <option value="Luar Kota"
+                        {{ old('deliveryType', $travelDocument->delivery_type) == 'Luar Kota' ? 'selected' : '' }}>
+                        Luar Kota
+                    </option>
+                </select>
             </div>
           </div>
 

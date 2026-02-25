@@ -46,77 +46,103 @@
             </div>
           </div>
 
-          <!-- Data Pengiriman Lain -->
-          <div class="row g-3 mb-4">
+            <!-- Data Pengiriman Lain -->
+            <div class="row g-3 mb-4">
             <div class="col-md-6">
-              <label class="form-label">Kepada <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Kepada <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="sendTo"
                 value="{{ old('sendTo') }}"
                 class="form-control @error('sendTo') is-invalid @enderror"
                 placeholder="Nama penerima"
                 required
-              />
-              @error('sendTo')
+                />
+                @error('sendTo')
                 <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
+                @enderror
             </div>
+
             <div class="col-md-6">
-              <label class="form-label">Nomor Ref <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Nomor Ref <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="numberRef"
                 value="{{ old('numberRef') }}"
                 class="form-control @error('numberRef') is-invalid @enderror"
                 placeholder="Nomor referensi"
                 required
-              />
-              @error('numberRef')
+                />
+                @error('numberRef')
                 <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
+                @enderror
             </div>
+
             <div class="col-md-6">
-              <label class="form-label">Tanggal Ref</label>
-              <input
-                type="date"
-                name="referenceDate"
-                value="{{ old('referenceDate') }}"
-                class="form-control @error('referenceDate') is-invalid @enderror"
-              />
-              @error('referenceDate')
-                <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Proyek <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Proyek <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="projectName"
                 value="{{ old('projectName') }}"
                 class="form-control @error('projectName') is-invalid @enderror"
                 placeholder="Nama proyek"
                 required
-              />
-              @error('projectName')
+                />
+                @error('projectName')
                 <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
+                @enderror
             </div>
+
             <div class="col-md-6">
-              <label class="form-label">Nomor PO <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Tanggal Ref</label>
+                <input
+                type="date"
+                name="referenceDate"
+                value="{{ old('referenceDate') }}"
+                class="form-control @error('referenceDate') is-invalid @enderror"
+                />
+                @error('referenceDate')
+                <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Nomor PO <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="poNumber"
                 value="{{ old('poNumber') }}"
                 class="form-control @error('poNumber') is-invalid @enderror"
                 placeholder="Nomor purchase order"
                 required
-              />
-              @error('poNumber')
+                />
+                @error('poNumber')
                 <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
+                @enderror
             </div>
-          </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Jenis Pengiriman <span class="text-danger">*</span></label>
+                <select
+                name="deliveryType"
+                class="form-select @error('deliveryType') is-invalid @enderror"
+                required
+                >
+                <option value="">-- Pilih Jenis --</option>
+                <option value="Dalam Kota" {{ old('deliveryType', 'Dalam Kota') == 'Dalam Kota' ? 'selected' : '' }}>
+                    Dalam Kota
+                </option>
+                <option value="Luar Kota" {{ old('deliveryType') == 'Luar Kota' ? 'selected' : '' }}>
+                    Luar Kota
+                </option>
+                </select>
+                @error('deliveryType')
+                <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+            </div>
+
+
 
           <!-- Bagian Barang -->
           <div class="card mt-4">

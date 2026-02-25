@@ -83,7 +83,7 @@
         <tr>
             <!-- Kiri: Logo dan Info Perusahaan -->
             <td style="width: 70%; vertical-align: top;">
-                <img src="{{ public_path('images/logo/logo-reka.png') }}" alt="Logo" style="max-width: 120px; margin-bottom: 0.5rem;">
+                <img src="{{ public_path('images/logo/logo-reka.png') }}" alt="Logo" style="max-width: 180px; margin-bottom: 0.5rem;">
                 <p style="font-size: 1rem; font-weight: bold; margin: 0;">PT Rekaindo Global Jasa</p>
                 <p style="font-size: 0.75rem; font-weight: light; margin: 0;">Jl. Candi Sewu No. 30, Madiun 63122</p>
                 <p style="font-size: 0.75rem; font-weight: light; margin: 0;">Telp. 0351-4773030</p>
@@ -92,7 +92,7 @@
 
             <!-- Kanan: QR Code -->
             <td style="width: 30%; text-align: right; vertical-align: top;">
-                <img src="data:image/svg+xml;base64, {!! $qrCode !!}" alt="QR Code" style="max-width: 100px; height: auto; margin-top: 0.5rem;">
+                <img src="data:image/svg+xml;base64, {!! $qrCode !!}" alt="QR Code" style="max-width: 80px; height: auto; margin-top: 0.5rem;">
                 <!--<img src="data:image/png;base64, {!! $qrCode !!}" alt="QR Code" style="max-width: 100px; height: auto; margin-top: 0.5rem;">-->
             </td>
         </tr>

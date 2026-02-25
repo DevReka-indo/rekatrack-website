@@ -15,6 +15,9 @@ use App\Models\DeliveryConfirmation;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
+
 
 class AdminWebController extends Controller
 {
@@ -406,6 +409,7 @@ class AdminWebController extends Controller
             'numberSJN' => 'required|string|max:100',
             'numberRef' => 'required|string|max:100',
             'referenceDate' => 'nullable|date',
+            'deliveryType' => 'required|in:Dalam Kota,Luar Kota',
             'projectName' => 'required|string|max:255',
             'poNumber' => 'required|string|max:100',
             'documentDate' => 'nullable|date',  // Validasi untuk document_date
@@ -445,6 +449,8 @@ class AdminWebController extends Controller
             'numberSJN.unique' => 'Nomor SJN sudah digunakan. Gunakan nomor yang berbeda.',
             'numberRef.required' => 'Nomor referensi harus diisi.',
             'referenceDate.date' => 'Format tanggal referensi tidak valid.',
+            'deliveryType.required' => 'Jenis pengiriman harus dipilih.',
+            'deliveryType.in' => 'Jenis pengiriman tidak valid.',
             'projectName.required' => 'Nama proyek harus diisi.',
             'poNumber.required' => 'Nomor PO harus diisi.',
             'documentDate.date' => 'Format tanggal dokumen tidak valid.',
@@ -519,6 +525,7 @@ class AdminWebController extends Controller
             'reference_date' => $validated['referenceDate'] ?? null,
             'po_number' => $validated['poNumber'],
             'project' => $validated['projectName'],
+            'delivery_type' => $validated['deliveryType'],
             'status' => 'Belum terkirim',
         ]);
     }
@@ -529,7 +536,7 @@ class AdminWebController extends Controller
     private function updateTravelDocument(TravelDocument $travelDocument, array $validated): void
     {
         // Posting date selalu menggunakan tanggal hari ini saat update
-        $postingDate = now();
+        $postingDate = Carbon::parse($travelDocument->posting_date);
 
         // Document date bisa dari input atau default ke posting date
         if (isset($validated['documentDate']) && !empty($validated['documentDate'])) {
@@ -545,7 +552,7 @@ class AdminWebController extends Controller
 
         $travelDocument->update([
             'no_travel_document' => $validated['numberSJN'],
-            'posting_date' => $postingDate,
+            // 'posting_date' => $postingDate,
             'document_date' => $documentDate,
             'is_backdate' => $isBackdate,
             'send_to' => $validated['sendTo'],
@@ -553,7 +560,8 @@ class AdminWebController extends Controller
             'reference_date' => $validated['referenceDate'] ?? null,
             'po_number' => $validated['poNumber'],
             'project' => $validated['projectName'],
-            'status' => 'Belum terkirim',
+            'delivery_type' => $validated['deliveryType'],
+            // 'status' => 'Belum terkirim',
         ]);
     }
 
@@ -595,6 +603,16 @@ class AdminWebController extends Controller
         }
 
         $travelDocument->items()->createMany($items);
+    }
+
+    /**
+     * Normalize item description to satisfy non-null DB constraint.
+     */
+    private function normalizeDescription(?string $description): string
+    {
+        $normalized = trim((string) $description);
+
+        return $normalized === '' ? '-' : $normalized;
     }
 
 

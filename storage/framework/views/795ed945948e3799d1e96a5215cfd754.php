@@ -258,7 +258,7 @@
         }
 
         function loadTracking(sjn) {
-            fetch(`<?php echo e(route('tracking.search')); ?>?no_travel_document=${encodeURIComponent(sjn)}`)
+            fetch(`<?php echo e(route('tracking.search')); ?>?search=${encodeURIComponent(sjn)}`)
                 .then(res => res.json())
                 .then(async data => {
 

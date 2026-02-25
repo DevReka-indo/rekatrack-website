@@ -5,58 +5,71 @@
 
 @section('content')
 
-<div class="row">
-  <!-- Main Information Card - 8 columns -->
+<div class="row g-4">
+  <!-- Main Information Card -->
   <div class="col-lg-8">
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Informasi Pengiriman</div>
-      </div>
+    <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="card-title mb-0">
+            Informasi Pengiriman
+        </div>
+
+        {{-- Button ke Detail Tracking --}}
+        <div>
+            <a href="{{ route('tracking.detail', $travelDocument->id) }}"
+            class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-map-marked-alt me-1"></i> Lihat Tracking
+            </a>
+        </div>
+        </div>
+
       <div class="card-body">
-        <div class="row">
+        <div class="row g-3">
+
           <!-- Kepada -->
-          <div class="col-md-6 mb-3">
-            <div class="d-flex align-items-center">
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100 d-flex align-items-center">
               <div class="me-3">
                 <i class="fa fa-user-circle fa-2x text-primary"></i>
               </div>
               <div class="flex-fill">
-                <p class="text-muted mb-1">Kepada</p>
-                <h5 class="fw-bold mb-0">{{ $travelDocument->send_to ?? '-' }}</h5>
+                <div class="text-muted small mb-1">Kepada</div>
+                <div class="fw-bold">{{ $travelDocument->send_to ?? '-' }}</div>
               </div>
             </div>
           </div>
 
           <!-- Proyek -->
-          <div class="col-md-6 mb-3">
-            <div class="d-flex align-items-center">
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100 d-flex align-items-center">
               <div class="me-3">
                 <i class="fa fa-project-diagram fa-2x text-success"></i>
               </div>
               <div class="flex-fill">
-                <p class="text-muted mb-1">Proyek</p>
-                <h5 class="fw-bold mb-0">{{ $travelDocument->project ?? '-' }}</h5>
+                <div class="text-muted small mb-1">Proyek</div>
+                <div class="fw-bold">{{ $travelDocument->project ?? '-' }}</div>
               </div>
             </div>
           </div>
 
           <!-- Tanggal Dokumen -->
-          <div class="col-md-6 mb-3">
-            <div class="d-flex align-items-center">
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100 d-flex align-items-center">
               <div class="me-3">
                 <i class="fa fa-calendar-alt fa-2x text-info"></i>
               </div>
               <div class="flex-fill">
-                <p class="text-muted mb-1">Tanggal Dokumen</p>
-                <h5 class="fw-bold mb-0">
+                <div class="text-muted small mb-1">Tanggal Dokumen</div>
+                <div class="fw-bold">
                   @if($travelDocument->document_date)
                     {{ \Carbon\Carbon::parse($travelDocument->document_date)->format('d M Y') }}
                   @else
                     -
                   @endif
-                </h5>
+                </div>
+
                 @if($travelDocument->is_backdate)
-                  <span class="badge badge-warning mt-1">
+                  <span class="badge badge-warning mt-2">
                     <i class="fa fa-history me-1"></i> Backdate
                   </span>
                 @endif
@@ -65,61 +78,57 @@
           </div>
 
           <!-- Tanggal Posting -->
-          <div class="col-md-6 mb-3">
-            <div class="d-flex align-items-center">
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100 d-flex align-items-center">
               <div class="me-3">
                 <i class="fa fa-calendar-check fa-2x text-warning"></i>
               </div>
               <div class="flex-fill">
-                <p class="text-muted mb-1">Tanggal Posting</p>
-                <h5 class="fw-bold mb-0">
+                <div class="text-muted small mb-1">Tanggal Posting</div>
+                <div class="fw-bold">
                   @if($travelDocument->posting_date)
                     {{ \Carbon\Carbon::parse($travelDocument->posting_date)->format('d M Y') }}
                   @else
                     -
                   @endif
-                </h5>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Waktu Mulai Kirim -->
-          <div class="col-md-6 mb-3">
-            <div class="d-flex align-items-center">
-              {{-- <div class="me-3">
-                <span class="badge badge-primary badge-lg">
-                  <i class="fa fa-play"></i>
-                </span>
-              </div> --}}
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100 d-flex align-items-center">
+              <div class="me-3">
+                <i class="fa fa-play-circle fa-2x text-primary"></i>
+              </div>
               <div class="flex-fill">
-                <p class="text-muted mb-1">Waktu Mulai Kirim</p>
+                <div class="text-muted small mb-1">Waktu Mulai Kirim</div>
                 @if($travelDocument->start_time)
-                  <h5 class="fw-bold text-primary mb-0">
+                  <div class="fw-bold text-primary">
                     {{ \Carbon\Carbon::parse($travelDocument->start_time)->format('d M Y, H:i') }} WIB
-                  </h5>
+                  </div>
                 @else
-                  <h5 class="text-muted mb-0">Belum dimulai</h5>
+                  <div class="text-muted">Belum dimulai</div>
                 @endif
               </div>
             </div>
           </div>
 
           <!-- Waktu Selesai Kirim -->
-          <div class="col-md-6 mb-3">
-            <div class="d-flex align-items-center">
-              {{-- <div class="me-3">
-                <span class="badge badge-success badge-lg">
-                  <i class="fa fa-stop"></i>
-                </span>
-              </div> --}}
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100 d-flex align-items-center">
+              <div class="me-3">
+                <i class="fa fa-stop-circle fa-2x text-success"></i>
+              </div>
               <div class="flex-fill">
-                <p class="text-muted mb-1">Waktu Selesai Kirim</p>
+                <div class="text-muted small mb-1">Waktu Selesai Kirim</div>
                 @if($travelDocument->end_time)
-                  <h5 class="fw-bold text-success mb-0">
+                  <div class="fw-bold text-success">
                     {{ \Carbon\Carbon::parse($travelDocument->end_time)->format('d M Y, H:i') }} WIB
-                  </h5>
+                  </div>
                 @else
-                  <h5 class="text-muted mb-0">Belum selesai</h5>
+                  <div class="text-muted">Belum selesai</div>
                 @endif
               </div>
             </div>
@@ -132,67 +141,80 @@
                 <div class="d-flex align-items-center">
                   <i class="fa fa-stopwatch me-2"></i>
                   <span class="fw-bold">
-                    Durasi Pengiriman: {{ \Carbon\Carbon::parse($travelDocument->start_time)->diffForHumans(\Carbon\Carbon::parse($travelDocument->end_time), true) }}
+                    Durasi Pengiriman:
+                    {{ \Carbon\Carbon::parse($travelDocument->start_time)->diffForHumans(\Carbon\Carbon::parse($travelDocument->end_time), true) }}
                   </span>
                 </div>
               </div>
             </div>
           @endif
+
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Reference Card - 4 columns (smaller) -->
+  <!-- Reference Card -->
   <div class="col-lg-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-header">
-        <div class="card-title">Referensi</div>
+        <div class="card-title mb-0">Referensi</div>
       </div>
+
       <div class="card-body">
         <!-- Status -->
         <div class="mb-3">
-          <p class="text-muted mb-2">Status</p>
+          <div class="text-muted small mb-2">Status</div>
           @if($travelDocument->status == 'Belum terkirim')
-            <span class="badge badge-warning">
-              <i class="fa fa-clock me-1"></i> Belum Terkirim
-            </span>
+            <span class="badge badge-warning"><i class="fa fa-clock me-1"></i> Belum Terkirim</span>
           @elseif($travelDocument->status == 'Sedang dikirim')
-            <span class="badge badge-info">
-              <i class="fa fa-truck me-1"></i> Sedang Dikirim
-            </span>
+            <span class="badge badge-info"><i class="fa fa-truck me-1"></i> Sedang Dikirim</span>
           @elseif($travelDocument->status == 'Terkirim')
-            <span class="badge badge-success">
-              <i class="fa fa-check-circle me-1"></i> Terkirim
-            </span>
+            <span class="badge badge-success"><i class="fa fa-check-circle me-1"></i> Terkirim</span>
           @else
             <span class="badge badge-secondary">-</span>
           @endif
         </div>
 
-        <hr>
+        <div class="small text-muted mb-2">Detail</div>
 
-        <!-- Nomor SJN -->
-        <div class="mb-3">
-          <p class="text-muted mb-1">Nomor SJN</p>
-          <h5 class="fw-bold">{{ $travelDocument->no_travel_document ?? '-' }}</h5>
+        <div class="list-group list-group-flush">
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted">Nomor SJN</span>
+            <span class="fw-bold text-end">{{ $travelDocument->no_travel_document ?? '-' }}</span>
+          </div>
+
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted">PO Number</span>
+            <span class="fw-bold text-end">{{ $travelDocument->po_number ?? '-' }}</span>
+          </div>
+
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted">Referensi</span>
+            <span class="fw-bold text-end">{{ $travelDocument->reference_number ?? '-' }}</span>
+          </div>
+
+          <!-- NEW: Reference Date -->
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted">Reference Date</span>
+            <span class="fw-bold text-end">
+              @if(!empty($travelDocument->reference_date))
+                {{ \Carbon\Carbon::parse($travelDocument->reference_date)->format('d M Y') }}
+              @else
+                -
+              @endif
+            </span>
+          </div>
+
+          <!-- NEW: Delivery Type -->
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted">Delivery Type</span>
+            <span class="fw-bold text-end">
+              {{ $travelDocument->delivery_type ?? ($travelDocument->delivery_tipe ?? '-') }}
+            </span>
+          </div>
         </div>
 
-        <hr>
-
-        <!-- PO Number -->
-        <div class="mb-3">
-          <p class="text-muted mb-1">PO Number</p>
-          <h5 class="fw-bold">{{ $travelDocument->po_number ?? '-' }}</h5>
-        </div>
-
-        <hr>
-
-        <!-- Reference -->
-        <div>
-          <p class="text-muted mb-1">Referensi</p>
-          <h5 class="fw-bold">{{ $travelDocument->reference_number ?? '-' }}</h5>
-        </div>
       </div>
     </div>
   </div>
@@ -200,7 +222,7 @@
 
 <!-- Items Table -->
 <div class="row mt-4">
-  <div class="col-md-12">
+  <div class="col-12">
     <div class="card card-round">
       <div class="card-header">
         <div class="card-head-row">
@@ -214,9 +236,10 @@
           </div>
         </div>
       </div>
+
       <div class="card-body p-0">
         <div class="table-responsive">
-          <table class="table table-hover table-head-bg-primary">
+          <table class="table table-hover table-head-bg-primary mb-0">
             <thead>
               <tr>
                 <th class="text-center" width="5%">No</th>
@@ -273,33 +296,31 @@
 
 <!-- Action Buttons -->
 <div class="row mt-4 mb-4">
-  <div class="col-md-12">
-    {{-- <div class="card card-round"> --}}
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <a href="{{ route('shippings.index') }}" class="btn btn-light btn-round">
-              <i class="fas fa-arrow-left me-1"></i> Kembali
+  <div class="col-12">
+    <div class="card-body p-0">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <a href="{{ route('shippings.index') }}" class="btn btn-light btn-round">
+            <i class="fas fa-arrow-left me-1"></i> Kembali
+          </a>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          @if($travelDocument->status === 'Terkirim')
+            <a href="{{ route('shippings.report', $travelDocument->id) }}" class="btn btn-success btn-round">
+              <i class="fas fa-file-invoice me-1"></i> Bukti Pengiriman
             </a>
-          </div>
-          <div class="d-flex gap-2">
-            @if($travelDocument->status === 'Terkirim')
-              <a href="{{ route('shippings.report', $travelDocument->id) }}"
-                  class="btn btn-success btn-round">
-                <i class="fas fa-file-invoice me-1"></i> Bukti Pengiriman
-              </a>
-            @endif
-            <a href="{{ route('shippings.edit', $travelDocument->id) }}"
-               class="btn btn-warning btn-round">
-              <i class="fas fa-edit me-1"></i> Edit
-            </a>
-            <form action="{{ route('shippings.print', $travelDocument->id) }}" method="GET" class="d-inline">
-              @csrf
-              <button type="submit" class="btn btn-primary btn-round">
-                <i class="fas fa-print me-1"></i> Cetak Surat Jalan
-              </button>
-            </form>
-          </div>
+          @endif
+
+          <a href="{{ route('shippings.edit', $travelDocument->id) }}" class="btn btn-warning btn-round">
+            <i class="fas fa-edit me-1"></i> Edit
+          </a>
+
+          <form action="{{ route('shippings.print', $travelDocument->id) }}" method="GET" class="d-inline">
+            @csrf
+            <button type="submit" class="btn btn-primary btn-round">
+              <i class="fas fa-print me-1"></i> Cetak Surat Jalan
+            </button>
+          </form>
         </div>
       </div>
     </div>
@@ -330,6 +351,20 @@
 
 .table-hover tbody tr:hover {
   background-color: #f1f4f9;
+}
+
+/* rapihin card kecil kanan */
+.list-group-item {
+  border: 0;
+  padding: .65rem 0;
+}
+
+.card .card-title {
+  font-weight: 700;
+}
+
+@media (max-width: 576px) {
+  .badge-lg { font-size: 12px; padding: 6px 10px; }
 }
 </style>
 @endsection

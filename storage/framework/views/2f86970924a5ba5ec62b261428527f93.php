@@ -141,6 +141,7 @@ if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
             </div>
+
             <div class="col-md-6">
               <label class="form-label">Proyek <span class="text-danger">*</span></label>
               <input
@@ -169,6 +170,34 @@ if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
             </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Tanggal Ref</label>
+              <input
+                type="date"
+                name="referenceDate"
+                value="<?php echo e(old('referenceDate', $travelDocument->reference_date ? \Carbon\Carbon::parse($travelDocument->reference_date)->format('Y-m-d') : '')); ?>"
+                class="form-control <?php $__errorArgs = ['referenceDate'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> is-invalid <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>"
+              />
+              <?php $__errorArgs = ['referenceDate'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                <div class="invalid-feedback"><?php echo e($message); ?></div>
+              <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+            </div>
+
             <div class="col-md-6">
               <label class="form-label">Nomor PO <span class="text-danger">*</span></label>
               <input
@@ -196,6 +225,20 @@ $message = $__bag->first($__errorArgs[0]); ?>
 if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Jenis Pengiriman</label>
+                <select name="deliveryType" class="form-control" required>
+                    <option value="Dalam Kota"
+                        <?php echo e(old('deliveryType', $travelDocument->delivery_type) == 'Dalam Kota' ? 'selected' : ''); ?>>
+                        Dalam Kota
+                    </option>
+                    <option value="Luar Kota"
+                        <?php echo e(old('deliveryType', $travelDocument->delivery_type) == 'Luar Kota' ? 'selected' : ''); ?>>
+                        Luar Kota
+                    </option>
+                </select>
             </div>
           </div>
 

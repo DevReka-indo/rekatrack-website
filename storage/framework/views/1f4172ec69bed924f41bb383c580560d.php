@@ -72,11 +72,11 @@ unset($__errorArgs, $__bag); ?>
             </div>
           </div>
 
-          <!-- Data Pengiriman Lain -->
-          <div class="row g-3 mb-4">
+            <!-- Data Pengiriman Lain -->
+            <div class="row g-3 mb-4">
             <div class="col-md-6">
-              <label class="form-label">Kepada <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Kepada <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="sendTo"
                 value="<?php echo e(old('sendTo')); ?>"
@@ -90,21 +90,22 @@ endif;
 unset($__errorArgs, $__bag); ?>"
                 placeholder="Nama penerima"
                 required
-              />
-              <?php $__errorArgs = ['sendTo'];
+                />
+                <?php $__errorArgs = ['sendTo'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
 $message = $__bag->first($__errorArgs[0]); ?>
                 <div class="invalid-feedback"><?php echo e($message); ?></div>
-              <?php unset($message);
+                <?php unset($message);
 if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
             </div>
+
             <div class="col-md-6">
-              <label class="form-label">Nomor Ref <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Nomor Ref <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="numberRef"
                 value="<?php echo e(old('numberRef')); ?>"
@@ -118,21 +119,22 @@ endif;
 unset($__errorArgs, $__bag); ?>"
                 placeholder="Nomor referensi"
                 required
-              />
-              <?php $__errorArgs = ['numberRef'];
+                />
+                <?php $__errorArgs = ['numberRef'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
 $message = $__bag->first($__errorArgs[0]); ?>
                 <div class="invalid-feedback"><?php echo e($message); ?></div>
-              <?php unset($message);
+                <?php unset($message);
 if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
             </div>
+
             <div class="col-md-6">
-              <label class="form-label">Proyek <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Proyek <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="projectName"
                 value="<?php echo e(old('projectName')); ?>"
@@ -146,21 +148,49 @@ endif;
 unset($__errorArgs, $__bag); ?>"
                 placeholder="Nama proyek"
                 required
-              />
-              <?php $__errorArgs = ['projectName'];
+                />
+                <?php $__errorArgs = ['projectName'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
 $message = $__bag->first($__errorArgs[0]); ?>
                 <div class="invalid-feedback"><?php echo e($message); ?></div>
-              <?php unset($message);
+                <?php unset($message);
 if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
             </div>
+
             <div class="col-md-6">
-              <label class="form-label">Nomor PO <span class="text-danger">*</span></label>
-              <input
+                <label class="form-label">Tanggal Ref</label>
+                <input
+                type="date"
+                name="referenceDate"
+                value="<?php echo e(old('referenceDate')); ?>"
+                class="form-control <?php $__errorArgs = ['referenceDate'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> is-invalid <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>"
+                />
+                <?php $__errorArgs = ['referenceDate'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                <div class="invalid-feedback"><?php echo e($message); ?></div>
+                <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Nomor PO <span class="text-danger">*</span></label>
+                <input
                 type="text"
                 name="poNumber"
                 value="<?php echo e(old('poNumber')); ?>"
@@ -174,19 +204,55 @@ endif;
 unset($__errorArgs, $__bag); ?>"
                 placeholder="Nomor purchase order"
                 required
-              />
-              <?php $__errorArgs = ['poNumber'];
+                />
+                <?php $__errorArgs = ['poNumber'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }
 $message = $__bag->first($__errorArgs[0]); ?>
                 <div class="invalid-feedback"><?php echo e($message); ?></div>
-              <?php unset($message);
+                <?php unset($message);
 if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
             </div>
-          </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Jenis Pengiriman <span class="text-danger">*</span></label>
+                <select
+                name="deliveryType"
+                class="form-select <?php $__errorArgs = ['deliveryType'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> is-invalid <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>"
+                required
+                >
+                <option value="">-- Pilih Jenis --</option>
+                <option value="Dalam Kota" <?php echo e(old('deliveryType', 'Dalam Kota') == 'Dalam Kota' ? 'selected' : ''); ?>>
+                    Dalam Kota
+                </option>
+                <option value="Luar Kota" <?php echo e(old('deliveryType') == 'Luar Kota' ? 'selected' : ''); ?>>
+                    Luar Kota
+                </option>
+                </select>
+                <?php $__errorArgs = ['deliveryType'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                <div class="invalid-feedback"><?php echo e($message); ?></div>
+                <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+            </div>
+            </div>
+
+
 
           <!-- Bagian Barang -->
           <div class="card mt-4">

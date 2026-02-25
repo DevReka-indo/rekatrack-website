@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
 use App\Models\DeliveryConfirmation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+
 
 class DriverController extends Controller
 {
@@ -72,120 +74,182 @@ class DriverController extends Controller
             'travel_document_id.*' => 'exists:travel_document,id',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
+            // optional kalau dari device ada timestamp:
+            // 'captured_at' => 'nullable|date',
         ]);
 
         $user = Auth::user();
         $driverId = $user->id;
 
+        $lat = (float) $request->latitude;
+        $lng = (float) $request->longitude;
+
         $responses = [];
 
         foreach ($request->travel_document_id as $documentId) {
-            $travelDocument = TravelDocument::find($documentId);
 
-            if ($travelDocument->status === 'Terkirim') {
-                $responses[] = [
-                    'travel_document_id' => $documentId,
-                    'message' => 'Surat jalan sudah terkirim, pengiriman lokasi tidak dapat dilakukan.',
-                    'status' => 'error',
-                ];
-                continue;
-            }
+            $result = DB::transaction(function () use ($documentId, $driverId, $lat, $lng) {
 
-            $track = Track::where('driver_id', $driverId)
-                ->whereHas('trackingSystems', function ($query) use ($documentId) {
-                    $query->where('travel_document_id', $documentId);
-                })
-                ->latest()
-                ->first();
+                // lock dokumen biar tidak race jika 2 shipment update bareng
+                $travelDocument = TravelDocument::where('id', $documentId)->lockForUpdate()->first();
 
-            if (!$track) {
-                $track = Track::create([
-                    'driver_id' => $driverId,
-                    'time_stamp' => now(),
-                    'status' => 'active',
-                ]);
-
-                TrackingSystem::create([
-                    'track_id' => $track->id,
-                    'travel_document_id' => $documentId,
-                    'time_stamp' => now(),
-                    'status' => 'active',
-                ]);
-            } else {
-                TrackingSystem::updateOrCreate(
-                    [
-                        'track_id' => $track->id,
+                if (!$travelDocument) {
+                    return [
                         'travel_document_id' => $documentId,
-                    ],
-                    [
+                        'message' => 'Surat jalan tidak ditemukan.',
+                        'status' => 'error',
+                    ];
+                }
+
+                if ($travelDocument->status === 'Terkirim') {
+                    return [
+                        'travel_document_id' => $documentId,
+                        'message' => 'Surat jalan sudah terkirim, pengiriman lokasi tidak dapat dilakukan.',
+                        'status' => 'error',
+                    ];
+                }
+
+                // =========================
+                // RULES (fix)
+                // =========================
+                $deliveryType = $travelDocument->delivery_type ?? 'Dalam Kota';
+                $isOutTown = $deliveryType === 'Luar Kota';
+
+                if ($isOutTown) {
+                    // LUAR KOTA
+                    $MIN_DISTANCE_KM = 1.0;             // 1 KM (FIX)
+                    $MIN_TIME_INTERVAL_SECONDS = 1800;  // 30 menit
+                    $MIN_STOP_TIME_SECONDS = 600;       // 10 menit
+                } else {
+                    // DALAM KOTA
+                    $MIN_DISTANCE_KM = 0.005;           // 5 meter
+                    $MIN_TIME_INTERVAL_SECONDS = 30;    // 30 detik
+                    $MIN_STOP_TIME_SECONDS = 60;        // 60 detik
+                }
+
+                // =========================
+                // Ambil / buat session per dokumen (TrackingSystem dulu)
+                // =========================
+                $trackingSystem = TrackingSystem::where('travel_document_id', $documentId)
+                    ->where('status', 'active')
+                    ->orderByDesc('time_stamp')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($trackingSystem && $trackingSystem->track) {
+                    $track = $trackingSystem->track;
+
+                    // pastikan track driver benar + aktif
+                    if ((int)$track->driver_id !== (int)$driverId) {
+                        // kalau ternyata track milik driver lain (data kotor), buat baru
+                        $track = null;
+                    } elseif ($track->status !== 'active') {
+                        $track->update(['status' => 'active']);
+                    }
+                } else {
+                    $track = null;
+                }
+
+                if (!$track) {
+                    $track = Track::create([
+                        'driver_id' => $driverId,
                         'time_stamp' => now(),
                         'status' => 'active',
-                    ]
-                );
+                    ]);
 
-                if ($track->status !== 'active') {
-                    $track->update(['status' => 'active']);
-                }
-            }
-
-            // perhitungan jarak
-            $lastLocation = Location::where('track_id', $track->id)
-                ->orderBy('time_stamp', 'desc')
-                ->first();
-            // hitung jarak dari lokasi terakhir
-            $distanceFromLast = 0;
-
-            $MIN_DISTANCE_KM = 0.01; // 0.1km = 100 meter
-            $MIN_TIME_INTERVAL_SECONDS = 30; // 30 detik
-            $MIN_STOP_TIME_SECONDS = 60; // 60 detik
-
-            if ($lastLocation) {
-                $distanceFromLast = $this->calculateDistance(
-                    $lastLocation->latitude, $lastLocation->longitude,
-                    $request->latitude, $request->longitude
-                );
-                $secondsDiff = now()->diffInSeconds($lastLocation->time_stamp);
-
-                if ($secondsDiff > $MIN_STOP_TIME_SECONDS) {
-                    // Simpan jika waktu lama (berhenti), abaikan jarak
-                } elseif ($distanceFromLast < $MIN_DISTANCE_KM && $secondsDiff < $MIN_TIME_INTERVAL_SECONDS && $track->locations()->count() > 0) {
-                    $responses[] = [
+                    $trackingSystem = TrackingSystem::create([
+                        'track_id' => $track->id,
                         'travel_document_id' => $documentId,
-                        'message' => 'Lokasi terlalu dekat (<10m) atau terlalu cepat, tidak disimpan.',
-                        'distance_m' => round($distanceFromLast * 1000, 1),
-                        'status' => 'skipped',
-                    ];
-                    continue;
+                        'time_stamp' => now(),
+                        'status' => 'active',
+                    ]);
+                } else {
+                    // update heartbeat trackingSystem
+                    $trackingSystem->update([
+                        'time_stamp' => now(),
+                        'status' => 'active',
+                    ]);
+
+                    $track->update([
+                        'time_stamp' => now(),
+                        'status' => 'active',
+                    ]);
                 }
-            }
 
-            // $isCheckpoint = ($track->locations()->count() === 0) ? 1 : 0;
-            $isCheckpoint = ($track->locations()->count() === 0 || $secondsDiff > $MIN_STOP_TIME_SECONDS) ? 1 : 0;
+                // =========================
+                // Ambil lokasi terakhir (KHUSUS track milik dokumen ini)
+                // =========================
+                $lastLocation = Location::where('track_id', $track->id)
+                    ->orderByDesc('time_stamp')
+                    ->first();
 
-            Location::create([
-                'track_id' => $track->id,
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'time_stamp' => now(),
-                'is_checkpoint' => $isCheckpoint,
-                'distance_from_last' => round($distanceFromLast * 1000, 1), // dalam meter
+                $distanceFromLastKm = 0.0;
+                $secondsDiff = null;
+
+                if ($lastLocation) {
+                    $distanceFromLastKm = $this->calculateDistance(
+                        (float)$lastLocation->latitude,
+                        (float)$lastLocation->longitude,
+                        $lat,
+                        $lng
+                    );
+
+                    $secondsDiff = now()->diffInSeconds(Carbon::parse($lastLocation->time_stamp));
+
+                    // =========================
+                    // SKIP logic yang lebih jelas:
+                    // skip jika jarak < threshold DAN interval < threshold
+                    // =========================
+                    if ($distanceFromLastKm < $MIN_DISTANCE_KM && $secondsDiff < $MIN_TIME_INTERVAL_SECONDS) {
+                        return [
+                            'travel_document_id' => $documentId,
+                            'track_id' => $track->id,
+                            'message' => $isOutTown
+                                ? 'Luar kota: terlalu dekat & interval belum cukup, tidak disimpan.'
+                                : 'Dalam kota: terlalu dekat & terlalu cepat, tidak disimpan.',
+                            'distance_m' => round($distanceFromLastKm * 1000, 1),
+                            'seconds_diff' => $secondsDiff,
+                            'status' => 'skipped',
+                        ];
+                    }
+                }
+
+                // checkpoint: pertama kali ATAU berhenti lama
+                $isCheckpoint = 0;
+                if (!$lastLocation) {
+                    $isCheckpoint = 1;
+                } elseif ($secondsDiff !== null && $secondsDiff >= $MIN_STOP_TIME_SECONDS) {
+                    $isCheckpoint = 1;
+                }
+
+                Location::create([
+                    'track_id' => $track->id,
+                    'latitude' => $lat,
+                    'longitude' => $lng,
+                    'time_stamp' => now(),
+                    'is_checkpoint' => $isCheckpoint,
+                    'distance_from_last' => round($distanceFromLastKm * 1000, 1),
                 ]);
 
-            // ✅ Set start_time hanya jika belum ada
-            $updates = ['status' => 'Sedang dikirim'];
-            if (is_null($travelDocument->start_time)) {
-                $updates['start_time'] = now();
-            }
-            $travelDocument->update($updates);
+                // start_time dan status
+                $updates = ['status' => 'Sedang dikirim'];
+                if (is_null($travelDocument->start_time)) {
+                    $updates['start_time'] = now();
+                }
+                $travelDocument->update($updates);
 
-            $responses[] = [
-                'travel_document_id' => $documentId,
-                'track_id' => $track->id,
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'status' => 'active',
-                'message' => 'Lokasi berhasil dikirim.',
-            ];
+                return [
+                    'travel_document_id' => $documentId,
+                    'track_id' => $track->id,
+                    'latitude' => $lat,
+                    'longitude' => $lng,
+                    'delivery_type' => $deliveryType,
+                    'status' => 'active',
+                    'message' => 'Lokasi berhasil dikirim.',
+                ];
+            });
+
+            $responses[] = $result;
         }
 
         return response()->json([
@@ -193,6 +257,8 @@ class DriverController extends Controller
             'data' => $responses,
         ], 201);
     }
+
+
 
     public function updateStatusSendSJN(Request $request)
     {

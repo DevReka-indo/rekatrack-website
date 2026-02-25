@@ -56,16 +56,18 @@ class ShippingsExport implements
             'Tanggal SJN',
             'Kepada',
             'Nomor Referensi',
+            'Tanggal Referensi',
             'Nomor PO',
             'Proyek',
             'Status',
             'Kode Barang',
             'Nama Barang',
+            'Tanggal Kirim',
+            'Tanggal Diterima',
             'Qty Kirim',
             'Qty PO',
             'Total Kirim',
             'Satuan',
-            'Deskripsi',
             'Keterangan'
         ];
     }
@@ -146,16 +148,18 @@ class ShippingsExport implements
             $this->formatDate($travelDocument->posting_date),
             $travelDocument->send_to,
             $travelDocument->reference_number,
+            $this->formatDate($travelDocument->reference_date),
             $travelDocument->po_number,
             $travelDocument->project,
             $travelDocument->status,
             '', // item_code
             '', // item_name
+            $travelDocument->start_time ? $this->formatDateTime($travelDocument->start_time) : '',
+            $travelDocument->end_time ? $this->formatDateTime($travelDocument->end_time) : '',
             '', // qty_send
             '', // qty_po
             '', // total_send
             '', // unit
-            '', // description
             ''  // information
         ];
     }
@@ -170,16 +174,18 @@ class ShippingsExport implements
             $this->formatDate($travelDocument->posting_date),
             $travelDocument->send_to,
             $travelDocument->reference_number,
+            $this->formatDate($travelDocument->reference_date),
             $travelDocument->po_number,
             $travelDocument->project,
             $travelDocument->status,
             $item->item_code ?? '',
             $item->item_name ?? '',
+            $this->formatDateTime($travelDocument->start_time) ? $this->formatDateTime($travelDocument->start_time) : '',
+            $this->formatDateTime($travelDocument->end_time) ? $this->formatDateTime($travelDocument->end_time) : '',
             $item->qty_send ?? 0,
             $item->qty_po ?? 0,
             $item->total_send ?? 0,
             $item->unit?->name ?? '—',
-            $item->description ?? '',
             $item->information ?? ''
         ];
     }
@@ -195,6 +201,22 @@ class ShippingsExport implements
 
         try {
             return Carbon::parse($date)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return '';
+        }
+    }
+
+    /**
+     * Format datetime to Y-m-d H:i format
+     */
+    private function formatDateTime($dateTime): string
+    {
+        if (!$dateTime) {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($dateTime)->format('Y-m-d H:i');
         } catch (\Exception $e) {
             return '';
         }

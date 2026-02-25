@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,6 +21,7 @@ class TravelDocument extends Model
         'po_number',
         'reference_number',
         'reference_date',
+        'delivery_type',
         'project',
         'status',
         'start_time',
@@ -28,8 +30,8 @@ class TravelDocument extends Model
 
     protected $dates = [
         'deleted_at',
-        'posting_date',        // Dirubah dari date_no_travel_document
-        'document_date',       // Kolom baru
+        'posting_date',
+        'document_date',
         'reference_date',
         'start_time',
         'end_time'
