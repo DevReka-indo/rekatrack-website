@@ -18,6 +18,9 @@ class TravelDocument extends Model
         'document_date',
         'is_backdate',
         'send_to',
+        'driver_id',
+        'driver_name',
+        'vehicle_number',
         'po_number',
         'reference_number',
         'reference_date',
@@ -51,4 +54,15 @@ class TravelDocument extends Model
     {
         return $this->hasOne(DeliveryConfirmation::class);
     }
+
+    public function driver()
+    {
+        return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(TravelDocumentAttachment::class, 'travel_document_id');
+    }
+
 }

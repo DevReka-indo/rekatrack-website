@@ -87,7 +87,7 @@
         </div>
     </div>
 
-    <!-- Controls -->
+    <!-- Controls (SERVER SIDE via GET /shippings) -->
     <div class="row">
         <div class="col-md-12">
             <div class="card">
@@ -98,50 +98,97 @@
                             <i class="fas fa-plus me-1"></i> Tambah Pengiriman
                         </a>
                         <button type="button" class="btn btn-success btn-round" data-bs-toggle="modal"
-                            data-bs-target="#exportModal">
+                                data-bs-target="#exportModal">
                             <i class="fas fa-file-export me-1"></i> Export
                         </button>
                     </div>
                 </div>
+
                 <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <select class="form-select" id="statusFilter">
-                                <option value="">Semua Status</option>
-                                <option value="Belum terkirim">Belum Terkirim</option>
-                                <option value="Sedang dikirim">Sedang Dikirim</option>
-                                <option value="Terkirim">Terkirim</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal"
-                                data-bs-target="#dateFilterModal">
-                                <i class="fas fa-calendar-alt me-1"></i> Filter Tanggal
-                                <span id="dateFilterBadge" class="badge bg-primary ms-1" style="display: none;">1</span>
-                            </button>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="input-group">
-                                <span class="input-group-text bg-white">
-                                    <i class="fas fa-search text-muted"></i>
-                                </span>
-                                <input type="text" class="form-control" id="searchInput"
-                                    placeholder="Cari nomor SJN, tujuan, atau proyek..." />
+                    <form method="GET" action="{{ route('shippings.index') }}" id="filterForm">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <select class="form-select" id="statusFilter" name="status" onchange="this.form.submit()">
+                                    <option value="">Semua Status</option>
+                                    <option value="Belum terkirim" {{ request('status') == 'Belum terkirim' ? 'selected' : '' }}>Belum Terkirim</option>
+                                    <option value="Sedang dikirim" {{ request('status') == 'Sedang dikirim' ? 'selected' : '' }}>Sedang Dikirim</option>
+                                    <option value="Terkirim" {{ request('status') == 'Terkirim' ? 'selected' : '' }}>Terkirim</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                {{-- Hidden input: date filter values ikut submit --}}
+                                <input type="hidden" name="date_type" id="dateTypeInput" value="{{ request('date_type', 'document') }}">
+                                <input type="hidden" name="start_date" id="startDateInput" value="{{ request('start_date') }}">
+                                <input type="hidden" name="end_date" id="endDateInput" value="{{ request('end_date') }}">
+
+                                <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal"
+                                        data-bs-target="#dateFilterModal">
+                                    <i class="fas fa-calendar-alt me-1"></i> Filter Tanggal
+                                    <span id="dateFilterBadge"
+                                          class="badge bg-primary ms-1"
+                                          style="{{ (request('start_date') || request('end_date')) ? '' : 'display: none;' }}">
+                                        1
+                                    </span>
+                                </button>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="searchInput"
+                                           name="search"
+                                           value="{{ request('search') }}"
+                                           placeholder="Cari nomor SJN, tujuan, proyek, atau item..." />
+                                    <button class="btn btn-primary" type="submit">Cari</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <!-- Active Filter Display -->
-                    <div id="activeFilters" class="mt-3" style="display: none;">
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <small class="text-muted">Filter aktif:</small>
-                            <span id="dateRangeDisplay" class="badge bg-light text-dark border" style="display: none;">
-                                <i class="fas fa-calendar-alt me-1"></i>
-                                <span id="dateRangeText"></span>
-                                <button type="button" class="btn-close btn-close-sm ms-2" onclick="clearDateFilter()"
-                                    style="font-size: 0.6rem;"></button>
-                            </span>
-                        </div>
-                    </div>
+
+                        {{-- Active Filter Display (server-side) --}}
+                        @if(request('search') || request('status') || request('start_date') || request('end_date'))
+                            <div id="activeFilters" class="mt-3">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <small class="text-muted">Filter aktif:</small>
+
+                                    @if(request('search'))
+                                        <span class="badge bg-light text-dark border">
+                                            <i class="fas fa-search me-1"></i> {{ request('search') }}
+                                        </span>
+                                    @endif
+
+                                    @if(request('status'))
+                                        <span class="badge bg-light text-dark border">
+                                            <i class="fas fa-filter me-1"></i> {{ request('status') }}
+                                        </span>
+                                    @endif
+
+                                    @if(request('start_date') || request('end_date'))
+                                        <span class="badge bg-light text-dark border">
+                                            <i class="fas fa-calendar-alt me-1"></i>
+                                            <span>
+                                                [{{ request('date_type','document') === 'posting' ? 'Posting' : 'Dokumen' }}]
+                                                {{ request('start_date') ?: '...' }} - {{ request('end_date') ?: '...' }}
+                                            </span>
+                                            <button type="button"
+                                                    class="btn-close btn-close-sm ms-2"
+                                                    onclick="clearDateFilter()"
+                                                    style="font-size: 0.6rem;">
+                                            </button>
+                                        </span>
+                                    @endif
+
+                                    <a href="{{ route('shippings.index') }}" class="btn btn-sm btn-outline-secondary ms-2">
+                                        Reset Semua
+                                    </a>
+                                </div>
+                            </div>
+                        @endif
+                    </form>
                 </div>
             </div>
         </div>
@@ -170,9 +217,7 @@
                             </thead>
                             <tbody>
                                 @forelse($listTravelDocument as $index => $doc)
-                                    <tr class="shipping-row" data-status="{{ $doc->status }}"
-                                        data-document-date="{{ $doc->document_date }}"
-                                        data-posting-date="{{ $doc->posting_date }}">
+                                    <tr>
                                         <td class="text-center text-muted">{{ $listTravelDocument->firstItem() + $index }}</td>
                                         <td>
                                             <a href="{{ route('shippings.detail', $doc->id) }}" class="text-primary fw-bold">
@@ -214,6 +259,8 @@
                                                 <span class="badge badge-info badge-status">Sedang dikirim</span>
                                             @elseif($doc->status == 'Terkirim')
                                                 <span class="badge badge-success badge-status">Terkirim</span>
+                                            @else
+                                                <span class="badge bg-secondary">{{ $doc->status }}</span>
                                             @endif
                                         </td>
                                         <!-- Waktu Mulai -->
@@ -236,17 +283,17 @@
                                             <div class="form-button-action">
                                                 @if ($doc->status === 'Terkirim')
                                                     <a href="{{ route('shippings.report', $doc->id) }}"
-                                                        class="btn btn-link btn-success btn-lg"
-                                                        title="Lihat Laporan Surat Jalan">
+                                                       class="btn btn-link btn-success btn-lg"
+                                                       title="Lihat Laporan Surat Jalan">
                                                         <i class="fas fa-file-alt"></i>
                                                     </a>
                                                 @endif
                                                 <a href="{{ route('shippings.detail', $doc->id) }}"
-                                                    class="btn btn-link btn-primary btn-lg" title="Detail">
+                                                   class="btn btn-link btn-primary btn-lg" title="Detail">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 <button type="button" class="btn btn-link btn-danger btn-lg"
-                                                    onclick="confirmDelete({{ $doc->id }})" title="Hapus">
+                                                        onclick="confirmDelete({{ $doc->id }})" title="Hapus">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
@@ -264,6 +311,7 @@
                         </table>
                     </div>
                 </div>
+
                 <div class="card-footer d-flex justify-content-between align-items-center">
                     <small class="text-muted">
                         Menampilkan {{ $listTravelDocument->firstItem() ?? 0 }}–{{ $listTravelDocument->lastItem() ?? 0 }}
@@ -299,17 +347,17 @@
                     <div class="mb-3">
                         <label class="form-label">Tipe Tanggal</label>
                         <select class="form-select" id="filterDateType">
-                            <option value="document">Tanggal Dokumen</option>
-                            <option value="posting">Tanggal Posting</option>
+                            <option value="document" {{ request('date_type','document')=='document' ? 'selected' : '' }}>Tanggal Dokumen</option>
+                            <option value="posting" {{ request('date_type')=='posting' ? 'selected' : '' }}>Tanggal Posting</option>
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Tanggal Mulai</label>
-                        <input type="date" class="form-control" id="filterStartDate" />
+                        <input type="date" class="form-control" id="filterStartDate" value="{{ request('start_date') }}" />
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Tanggal Akhir</label>
-                        <input type="date" class="form-control" id="filterEndDate" />
+                        <input type="date" class="form-control" id="filterEndDate" value="{{ request('end_date') }}" />
                     </div>
                     <div class="alert alert-info mb-0">
                         <i class="fas fa-info-circle me-2"></i>
@@ -368,137 +416,26 @@
 
 @push('scripts')
     <script>
-        let startDateFilter = '';
-        let endDateFilter = '';
-        let dateTypeFilter = 'document'; // default filter by document date
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('searchInput');
-            const statusFilter = document.getElementById('statusFilter');
-            const rows = document.querySelectorAll('.shipping-row');
-
-            function filterTable() {
-                const searchTerm = searchInput.value.toLowerCase().trim();
-                const statusValue = statusFilter.value;
-
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    const status = row.dataset.status;
-                    const documentDate = row.dataset.documentDate;
-                    const postingDate = row.dataset.postingDate;
-
-                    const matchesSearch = text.includes(searchTerm);
-                    const matchesStatus = !statusValue || status === statusValue;
-                    const matchesDate = checkDateRange(documentDate, postingDate);
-
-                    row.style.display = (matchesSearch && matchesStatus && matchesDate) ? '' : 'none';
-                });
-            }
-
-            function checkDateRange(documentDate, postingDate) {
-                if (!startDateFilter && !endDateFilter) return true;
-
-                // Pilih tanggal yang akan difilter berdasarkan tipe
-                const dateStr = dateTypeFilter === 'document' ? documentDate : postingDate;
-
-                if (!dateStr) return false;
-
-                const rowDate = new Date(dateStr);
-                const start = startDateFilter ? new Date(startDateFilter) : null;
-                const end = endDateFilter ? new Date(endDateFilter) : null;
-
-                if (start && end) {
-                    return rowDate >= start && rowDate <= end;
-                } else if (start) {
-                    return rowDate >= start;
-                } else if (end) {
-                    return rowDate <= end;
-                }
-                return true;
-            }
-
-            searchInput.addEventListener('input', filterTable);
-            statusFilter.addEventListener('change', filterTable);
-
-            // Expose filterTable globally
-            window.filterTable = filterTable;
-        });
-
         function applyDateFilter() {
             const startDate = document.getElementById('filterStartDate').value;
             const endDate = document.getElementById('filterEndDate').value;
             const dateType = document.getElementById('filterDateType').value;
 
-            startDateFilter = startDate;
-            endDateFilter = endDate;
-            dateTypeFilter = dateType;
+            document.getElementById('startDateInput').value = startDate;
+            document.getElementById('endDateInput').value = endDate;
+            document.getElementById('dateTypeInput').value = dateType;
 
-            // Update UI
-            updateDateFilterDisplay();
-
-            // Apply filter
-            window.filterTable();
-
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('dateFilterModal'));
-            modal.hide();
+            document.getElementById('filterForm').submit();
         }
 
         function clearDateFilter() {
-            startDateFilter = '';
-            endDateFilter = '';
-            dateTypeFilter = 'document';
+            // reset hanya filter tanggal, search/status tetap ada di query string,
+            // tapi karena kita submit form, value input search/status masih ikut.
+            document.getElementById('startDateInput').value = '';
+            document.getElementById('endDateInput').value = '';
+            document.getElementById('dateTypeInput').value = 'document';
 
-            document.getElementById('filterStartDate').value = '';
-            document.getElementById('filterEndDate').value = '';
-            document.getElementById('filterDateType').value = 'document';
-
-            updateDateFilterDisplay();
-            window.filterTable();
-
-            // Close modal if open
-            const modalElement = document.getElementById('dateFilterModal');
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) {
-                modal.hide();
-            }
-        }
-
-        function updateDateFilterDisplay() {
-            const badge = document.getElementById('dateFilterBadge');
-            const activeFilters = document.getElementById('activeFilters');
-            const dateRangeDisplay = document.getElementById('dateRangeDisplay');
-            const dateRangeText = document.getElementById('dateRangeText');
-
-            if (startDateFilter || endDateFilter) {
-                badge.style.display = 'inline-block';
-                activeFilters.style.display = 'block';
-                dateRangeDisplay.style.display = 'inline-flex';
-
-                const dateTypeLabel = dateTypeFilter === 'document' ? 'Dokumen' : 'Posting';
-                let displayText = `[${dateTypeLabel}] `;
-
-                if (startDateFilter && endDateFilter) {
-                    displayText += `${formatDate(startDateFilter)} - ${formatDate(endDateFilter)}`;
-                } else if (startDateFilter) {
-                    displayText += `Dari ${formatDate(startDateFilter)}`;
-                } else if (endDateFilter) {
-                    displayText += `Sampai ${formatDate(endDateFilter)}`;
-                }
-                dateRangeText.textContent = displayText;
-            } else {
-                badge.style.display = 'none';
-                activeFilters.style.display = 'none';
-                dateRangeDisplay.style.display = 'none';
-            }
-        }
-
-        function formatDate(dateStr) {
-            const date = new Date(dateStr);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            return `${day}/${month}/${year}`;
+            document.getElementById('filterForm').submit();
         }
 
         function confirmDelete(id) {

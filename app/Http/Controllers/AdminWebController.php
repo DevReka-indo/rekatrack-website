@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TrackingSystem;
 use App\Models\TravelDocument;
+use App\Models\TravelDocumentAttachment;
 use App\Models\Items;
 use App\Models\Unit;
 use Illuminate\Support\Facades\Validator;
@@ -18,7 +19,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
-
 class AdminWebController extends Controller
 {
     // ========================================
@@ -28,24 +28,99 @@ class AdminWebController extends Controller
     /**
      * Display list of travel documents
      */
-    public function shippingsIndex()
+    public function shippingsIndex(Request $request)
     {
-        // Ambil data untuk pagination
-        $listTravelDocument = TravelDocument::latest('id')->paginate(10);
+        $search = trim((string) $request->query('search', ''));
+        $status = trim((string) $request->query('status', ''));
+        $dateType = $request->query('date_type', 'document'); // document | posting
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
 
-        // Hitung total global per status (semua data, bukan hanya halaman ini)
-        $stats = TravelDocument::selectRaw(
-            "
+        $query = TravelDocument::query();
+
+        // SEARCH (travel_document + items)
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('no_travel_document', 'like', "%{$search}%")
+                    ->orWhere('send_to', 'like', "%{$search}%")
+                    ->orWhere('status', 'like', "%{$search}%")
+                    ->orWhere('project', 'like', "%{$search}%")
+                    ->orWhereHas('items', function ($itemQuery) use ($search) {
+                        $itemQuery->where(function ($i) use ($search) {
+                            $i->where('item_name', 'like', "%{$search}%")
+                                ->orWhere('item_code', 'like', "%{$search}%")
+                                ->orWhere('description', 'like', "%{$search}%");
+                        });
+                    });
+            });
+        }
+
+        // STATUS FILTER
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
+        // DATE FILTER
+        $dateColumn = $dateType === 'posting' ? 'posting_date' : 'document_date';
+
+        if (!empty($startDate)) {
+            $query->whereDate($dateColumn, '>=', $startDate);
+        }
+        if (!empty($endDate)) {
+            $query->whereDate($dateColumn, '<=', $endDate);
+        }
+
+        // Pagination (wajib appends supaya query string kebawa)
+        $listTravelDocument = $query
+            ->with(['items.unit']) // optional: kalau detail butuh unit
+            ->latest('id')
+            ->paginate(10)
+            ->appends($request->query());
+
+        // Stats Cards (opsional):
+        // Kalau kamu ingin stats mengikuti filter saat ini, pakai clone query yang sama.
+        // Kalau ingin tetap stats global, pakai TravelDocument::selectRaw seperti sebelumnya.
+        $statsQuery = TravelDocument::query();
+
+        // Terapkan filter yang sama untuk stats agar konsisten dengan hasil tabel
+        if ($search !== '') {
+            $statsQuery->where(function ($q) use ($search) {
+                $q->where('no_travel_document', 'like', "%{$search}%")
+                    ->orWhere('send_to', 'like', "%{$search}%")
+                    ->orWhere('status', 'like', "%{$search}%")
+                    ->orWhere('project', 'like', "%{$search}%")
+                    ->orWhereHas('items', function ($itemQuery) use ($search) {
+                        $itemQuery->where(function ($i) use ($search) {
+                            $i->where('item_name', 'like', "%{$search}%")
+                                ->orWhere('item_code', 'like', "%{$search}%")
+                                ->orWhere('description', 'like', "%{$search}%");
+                        });
+                    });
+            });
+        }
+        if ($status !== '') {
+            $statsQuery->where('status', $status);
+        }
+        if (!empty($startDate)) {
+            $statsQuery->whereDate($dateColumn, '>=', $startDate);
+        }
+        if (!empty($endDate)) {
+            $statsQuery->whereDate($dateColumn, '<=', $endDate);
+        }
+
+        $stats = $statsQuery
+            ->selectRaw(
+                "
             SUM(CASE WHEN status = 'Belum terkirim' THEN 1 ELSE 0 END) as belum_terkirim,
             SUM(CASE WHEN status = 'Sedang dikirim' THEN 1 ELSE 0 END) as sedang_dikirim,
             SUM(CASE WHEN status = 'Terkirim' THEN 1 ELSE 0 END) as terkirim,
             COUNT(*) as total
         ",
-        )->first();
+            )
+            ->first();
 
         $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')], ['label' => 'Manajemen Pengiriman', 'url' => '#']];
 
-        // Kirim ke view
         return view('General.shippings', [
             'listTravelDocument' => $listTravelDocument,
             'totalPengiriman' => $stats->total,
@@ -53,6 +128,14 @@ class AdminWebController extends Controller
             'totalSedangDikirim' => $stats->sedang_dikirim,
             'totalTerkirim' => $stats->terkirim,
             'breadcrumbs' => $breadcrumbs,
+            // biar blade gampang autofill
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+                'date_type' => $dateType,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
         ]);
     }
 
@@ -64,11 +147,18 @@ class AdminWebController extends Controller
         $query = $request->input('search');
 
         $results = TravelDocument::query()
+            ->with(['items.unit'])
             ->where(function ($q) use ($query) {
                 $q->where('no_travel_document', 'like', "%{$query}%")
                     ->orWhere('send_to', 'like', "%{$query}%")
                     ->orWhere('status', 'like', "%{$query}%")
-                    ->orWhere('project', 'like', "%{$query}%");
+                    ->orWhere('project', 'like', "%{$query}%")
+                    ->orWhereHas('items', function ($itemQuery) use ($query) {
+                        $itemQuery
+                            ->where('item_name', 'like', "%{$query}%")
+                            ->orWhere('item_code', 'like', "%{$query}%")
+                            ->orWhere('description', 'like', "%{$query}%");
+                    });
             })
             ->latest('id')
             ->get();
@@ -81,26 +171,69 @@ class AdminWebController extends Controller
      */
     public function shippingsDetail($id)
     {
-        $travelDocument = TravelDocument::with(['items.unit'])->findOrFail($id);
+        // Tambahkan relasi attachments
+        $travelDocument = TravelDocument::with(['items.unit', 'items.subItems.unit', 'attachments'])->findOrFail($id);
 
-        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')],
-                        ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')],
-                        ['label' => 'Detail Pengiriman', 'url' => '#']];
+        $subCount = $travelDocument->items->sum(fn($item) => $item->subItems ? $item->subItems->count() : 0);
 
-        return view('General.shippings-detail', compact('travelDocument', 'breadcrumbs'));
+        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')], ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')], ['label' => 'Detail Pengiriman', 'url' => '#']];
+
+        return view('General.shippings-detail', compact('travelDocument', 'breadcrumbs', 'subCount'));
     }
 
+    /**
+     * Show form to add new travel document
+     */
     /**
      * Show form to add new travel document
      */
     public function shippingsAdd()
     {
         $units = Unit::all();
-        $items = [['itemCode' => '', 'itemName' => '', 'quantitySend' => '', 'unitType' => '', 'description' => '', 'totalSend' => '', 'information' => '', 'qtyPreOrder' => '']];
 
-        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')],
-                        ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')],
-                        ['label' => 'Tambah Pengiriman', 'url' => '#']];
+        $items = [];
+
+        // Jika validation gagal, rebuild dari old()
+        if (old('itemName')) {
+            $count = count(old('itemName'));
+
+            for ($i = 0; $i < $count; $i++) {
+                $items[] = [
+                    'itemCode' => old("itemCode.$i"),
+                    'itemName' => old("itemName.$i"),
+                    'no' => old("no.$i"),
+                    'quantitySend' => old("quantitySend.$i"),
+                    'unitType' => old("unitType.$i"),
+                    'description' => old("description.$i"),
+                    'totalSend' => old("totalSend.$i"),
+                    'information' => old("information.$i"),
+                    'qtyPreOrder' => old("qtyPreOrder.$i"),
+
+                    // 🔥 GROUP TITLE
+                    'subItemGroupTitle' => old("subItemGroupTitle.$i"),
+
+                    // Sub item akan di-handle blade via old("subItems.$i")
+                    'subItems' => [],
+                ];
+            }
+        } else {
+            // Default pertama kali buka halaman
+            $items[] = [
+                'itemCode' => '',
+                'itemName' => '',
+                'no' => '',
+                'quantitySend' => '',
+                'unitType' => '',
+                'description' => '',
+                'totalSend' => '',
+                'information' => '',
+                'qtyPreOrder' => '',
+                'subItemGroupTitle' => '',
+                'subItems' => [],
+            ];
+        }
+
+        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')], ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')], ['label' => 'Tambah Pengiriman', 'url' => '#']];
 
         return view('General.shippings-add', compact('units', 'items', 'breadcrumbs'));
     }
@@ -108,20 +241,28 @@ class AdminWebController extends Controller
     /**
      * Show form to edit travel document
      */
+
     public function shippingsEdit($id)
     {
-        $travelDocument = TravelDocument::with('items')->findOrFail($id);
+        $travelDocument = TravelDocument::with(['items.unit', 'items.subItems.unit', 'attachments'])->findOrFail($id);
+
         $units = Unit::all();
 
-        // Siapkan items untuk view
+        // =====================
+        // BUILD ITEMS
+        // =====================
         $items = [];
 
-        // Jika ada old input (setelah redirect back), pakai old()
+        // ======================================
+        // CASE 1: VALIDATION ERROR (old input)
+        // ======================================
         if (old('itemName')) {
             $count = count(old('itemName'));
+
             for ($i = 0; $i < $count; $i++) {
                 $items[] = [
                     'itemName' => old("itemName.$i"),
+                    'no' => old("no.$i"),
                     'itemCode' => old("itemCode.$i"),
                     'quantitySend' => old("quantitySend.$i"),
                     'unitType' => old("unitType.$i"),
@@ -129,13 +270,39 @@ class AdminWebController extends Controller
                     'totalSend' => old("totalSend.$i"),
                     'information' => old("information.$i"),
                     'qtyPreOrder' => old("qtyPreOrder.$i"),
+
+                    // 🔥 GROUP TITLE
+                    'subItemGroupTitle' => old("subItemGroupTitle.$i"),
+
+                    // SubItems akan dibaca langsung via old("subItems.$i") di blade
+                    'subItems' => [],
                 ];
             }
         } else {
-            // Jika tidak, ambil dari database
+            // ======================================
+            // CASE 2: LOAD DARI DATABASE
+            // ======================================
             foreach ($travelDocument->items as $item) {
+                $subItems = [];
+
+                if ($item->subItems && $item->subItems->isNotEmpty()) {
+                    foreach ($item->subItems as $sub) {
+                        $subItems[] = [
+                            'item_name' => $sub->item_name,
+                            'item_code' => $sub->item_code,
+                            'unit_id' => $sub->unit_id,
+                            'qty_send' => $sub->qty_send,
+                            'qty_po' => $sub->qty_po,
+                            'total_send' => $sub->total_send,
+                            'information' => $sub->information,
+                            'description' => $sub->description ?? '',
+                        ];
+                    }
+                }
+
                 $items[] = [
                     'itemName' => $item->item_name,
+                    'no' => $item->no,
                     'itemCode' => $item->item_code,
                     'quantitySend' => $item->qty_send,
                     'unitType' => $item->unit_id,
@@ -143,15 +310,33 @@ class AdminWebController extends Controller
                     'totalSend' => $item->total_send,
                     'information' => $item->information,
                     'qtyPreOrder' => $item->qty_po,
+
+                    // 🔥 GROUP TITLE DARI DB
+                    'subItemGroupTitle' => $item->sub_item_group_title,
+
+                    'subItems' => $subItems,
                 ];
             }
         }
 
-        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')],
-                        ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')],
-                        ['label' => 'Edit Pengiriman', 'url' => '#']];
+        // =====================
+        // BUILD ATTACHMENTS
+        // =====================
+        $attachments = [];
 
-        return view('General.shippings-edit', compact('travelDocument', 'units', 'items', 'breadcrumbs'));
+        if (old('attachments')) {
+            foreach (old('attachments') as $name) {
+                $attachments[] = ['name' => $name];
+            }
+        } else {
+            foreach ($travelDocument->attachments as $att) {
+                $attachments[] = ['name' => $att->name];
+            }
+        }
+
+        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')], ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')], ['label' => 'Edit Pengiriman', 'url' => '#']];
+
+        return view('General.shippings-edit', compact('travelDocument', 'units', 'items', 'attachments', 'breadcrumbs'));
     }
 
     /**
@@ -170,17 +355,16 @@ class AdminWebController extends Controller
         DB::beginTransaction();
         try {
             $travelDocument = $this->createTravelDocument($validated);
+
             $this->createTravelDocumentItems($travelDocument, $validated);
+
+            $this->syncAttachments($travelDocument, $validated['attachments'] ?? [], true);
 
             DB::commit();
             return redirect()->route('shippings.index')->with('success', 'Data pengiriman berhasil ditambahkan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->handleShippingError(
-                $e,
-                'Terjadi kesalahan saat menyimpan data pengiriman.',
-                ['action' => 'create', 'numberSJN' => $request->input('numberSJN')],
-            )->withInput();
+            return $this->handleShippingError($e, 'Terjadi kesalahan saat menyimpan data pengiriman.', ['action' => 'create', 'numberSJN' => $request->input('numberSJN')])->withInput();
         }
     }
 
@@ -196,18 +380,18 @@ class AdminWebController extends Controller
             $travelDocument = TravelDocument::findOrFail($id);
 
             $this->updateTravelDocument($travelDocument, $validated);
+
             $travelDocument->items()->delete();
+
             $this->createTravelDocumentItems($travelDocument, $validated);
+
+            $this->syncAttachments($travelDocument, $validated['attachments'] ?? [], true);
 
             DB::commit();
             return redirect()->route('shippings.index')->with('success', 'Data pengiriman berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->handleShippingError(
-                $e,
-                'Terjadi kesalahan saat memperbarui data pengiriman.',
-                ['action' => 'update', 'travel_document_id' => $id, 'numberSJN' => $request->input('numberSJN')],
-            )->withInput();
+            return $this->handleShippingError($e, 'Terjadi kesalahan saat memperbarui data pengiriman.', ['action' => 'update', 'travel_document_id' => $id, 'numberSJN' => $request->input('numberSJN')])->withInput();
         }
     }
 
@@ -216,18 +400,16 @@ class AdminWebController extends Controller
      */
     public function shippingsSaveAs(Request $request, $id)
     {
-        // Validasi dengan pengecekan unique untuk no_travel_document
-        $validator = Validator::make($request->all(), array_merge(
-            $this->getValidationRules(),
-            [
+        $validator = Validator::make(
+            $request->all(),
+            array_merge($this->getValidationRules(), [
                 'numberSJN' => 'required|string|max:100|unique:travel_document,no_travel_document',
-            ]
-        ), array_merge(
-            $this->getValidationMessages(),
-            [
+            ]),
+            array_merge($this->getValidationMessages(), [
                 'numberSJN.unique' => 'Nomor SJN sudah digunakan. Gunakan nomor yang berbeda.',
-            ]
-        ), $this->getValidationAttributes($request));
+            ]),
+            $this->getValidationAttributes($request),
+        );
 
         if ($validator->fails()) {
             return redirect()->back()->withInput()->withErrors($validator);
@@ -237,19 +419,16 @@ class AdminWebController extends Controller
 
         DB::beginTransaction();
         try {
-            // Cek sekali lagi untuk memastikan nomor dokumen belum ada
             $exists = TravelDocument::where('no_travel_document', $validated['numberSJN'])->exists();
-
             if ($exists) {
-                return redirect()
-                    ->back()
-                    ->withInput()
-                    ->with('error', 'Nomor SJN sudah digunakan. Gunakan nomor yang berbeda.');
+                return redirect()->back()->withInput()->with('error', 'Nomor SJN sudah digunakan. Gunakan nomor yang berbeda.');
             }
 
-            // Buat dokumen baru (bukan update yang lama)
             $newTravelDocument = $this->createTravelDocument($validated);
+
             $this->createTravelDocumentItems($newTravelDocument, $validated);
+
+            $this->syncAttachments($newTravelDocument, $validated['attachments'] ?? [], true);
 
             DB::commit();
             return redirect()
@@ -257,11 +436,7 @@ class AdminWebController extends Controller
                 ->with('success', 'Data pengiriman berhasil disimpan sebagai dokumen baru dengan nomor: ' . $validated['numberSJN']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->handleShippingError(
-                $e,
-                'Terjadi kesalahan saat menyimpan data pengiriman.',
-                ['action' => 'create', 'numberSJN' => $request->input('numberSJN')],
-            )->withInput();
+            return $this->handleShippingError($e, 'Terjadi kesalahan saat menyimpan data pengiriman.', ['action' => 'create', 'numberSJN' => $request->input('numberSJN')])->withInput();
         }
     }
 
@@ -280,11 +455,7 @@ class AdminWebController extends Controller
             return redirect()->route('shippings.index')->with('success', 'Data berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->handleShippingError(
-                $e,
-                'Terjadi kesalahan saat menghapus data pengiriman.',
-                ['action' => 'delete', 'travel_document_id' => $id],
-            );
+            return $this->handleShippingError($e, 'Terjadi kesalahan saat menghapus data pengiriman.', ['action' => 'delete', 'travel_document_id' => $id]);
         }
     }
 
@@ -297,7 +468,7 @@ class AdminWebController extends Controller
      */
     public function printShippings($id)
     {
-        $travelDocument = TravelDocument::with('items.unit')->findOrFail($id);
+        $travelDocument = TravelDocument::with(['items.unit', 'items.subItems.unit'])->findOrFail($id);
 
         $qrString = "SJNID:{$id}";
         $qrCode = base64_encode(QrCode::format('svg')->size(200)->errorCorrection('H')->generate($qrString));
@@ -325,6 +496,43 @@ class AdminWebController extends Controller
         return Excel::download(new ShippingsExport($request->start_date, $request->end_date), $filename);
     }
 
+    /**
+     * Print Delivery Confirmation Report as PDF
+     */
+    public function printReport($id)
+    {
+        $travelDocument = TravelDocument::with(['driver', 'deliveryConfirmation.photos'])->findOrFail($id);
+
+        // Optional: hanya cetak jika status terkirim
+        if ($travelDocument->status !== 'Terkirim') {
+            return redirect()->route('shippings.detail', $id)->with('error', 'Bukti pengiriman hanya bisa dicetak jika status sudah Terkirim.');
+        }
+
+        $confirmation = $travelDocument->deliveryConfirmation;
+
+        // Ambil foto dari relasi photos, fallback ke kolom photo_path jika relasi kosong
+        $photos = [];
+        if ($confirmation) {
+            $photos = $confirmation->photos->pluck('photo_path')->filter()->values()->toArray();
+
+            if (empty($photos) && !empty($confirmation->photo_path)) {
+                $photos = [$confirmation->photo_path];
+            }
+        }
+
+        // nama file aman (hindari / \)
+        $sanitized = preg_replace('/[\/\\\\]/', '_', $travelDocument->no_travel_document ?? 'SJN');
+
+        $pdf = PDF::loadView('General.shippings-print-report', [
+            'travelDocument' => $travelDocument,
+            'confirmation' => $confirmation,
+            'photos' => $photos,
+            'printedAt' => now(),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream("Bukti_Pengiriman_{$sanitized}.pdf");
+    }
+
     // ========================================
     // TRACKING
     // ========================================
@@ -337,8 +545,7 @@ class AdminWebController extends Controller
         if ($request->has(['status', 'message'])) {
             session()->flash($request->status, $request->message);
         }
-        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')],
-                        ['label' => 'Tracking Pengiriman', 'url' => '#']];
+        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')], ['label' => 'Tracking Pengiriman', 'url' => '#']];
         return view('General.tracker', compact('breadcrumbs'));
     }
 
@@ -399,6 +606,19 @@ class AdminWebController extends Controller
         return Validator::make($request->all(), $rules, $messages, $attributes);
     }
 
+    private function syncAttachments(TravelDocument $travelDocument, array $attachments, bool $replace = true): void
+    {
+        $clean = collect($attachments)->map(fn($v) => trim((string) $v))->filter(fn($v) => $v !== '')->values()->all();
+
+        if ($replace) {
+            $travelDocument->attachments()->delete();
+        }
+
+        if (!empty($clean)) {
+            $travelDocument->attachments()->createMany(array_map(fn($name) => ['name' => $name], $clean));
+        }
+    }
+
     /**
      * Get validation rules
      */
@@ -412,7 +632,7 @@ class AdminWebController extends Controller
             'deliveryType' => 'required|in:Dalam Kota,Luar Kota',
             'projectName' => 'required|string|max:255',
             'poNumber' => 'required|string|max:100',
-            'documentDate' => 'nullable|date',  // Validasi untuk document_date
+            'documentDate' => 'nullable|date', // Validasi untuk document_date
             'itemCode' => 'required|array|min:1',
             'itemCode.*' => 'required|string|max:100',
             'itemName' => 'required|array|min:1',
@@ -429,6 +649,28 @@ class AdminWebController extends Controller
             'description.*' => 'nullable|string|max:1000',
             'information' => 'nullable|array',
             'information.*' => 'nullable|string',
+            // nomer barang
+            'no' => 'nullable|array',
+            'no.*' => 'nullable|string|max:100',
+            // ===== Attachments =====
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'nullable|string|max:255',
+            // ===== Vehicle & Driver =====
+            'vehicleNumber' => 'nullable|string|max:20',
+            'driverName' => 'nullable|string|max:255',
+            // ===== Sub Items =====
+            'subItemGroupTitle' => 'nullable|array',
+            'subItemGroupTitle.*' => 'nullable|string|max:255',
+            'subItems' => 'nullable|array',
+            'subItems.*' => 'nullable|array',
+            'subItems.*.*.item_code' => 'required_with:subItems.*.*|string|max:100',
+            'subItems.*.*.item_name' => 'required_with:subItems.*.*|string|max:255',
+            'subItems.*.*.qty_send' => 'nullable|integer|min:0',
+            'subItems.*.*.total_send' => 'required_with:subItems.*.*|integer|min:0',
+            'subItems.*.*.qty_po' => 'nullable|string|max:50',
+            'subItems.*.*.unit_id' => 'required_with:subItems.*.*|exists:units,id',
+            'subItems.*.*.description' => 'nullable|string|max:1000',
+            'subItems.*.*.information' => 'nullable|string',
         ];
 
         if ($enforceUniqueNumberSjn) {
@@ -444,7 +686,7 @@ class AdminWebController extends Controller
     private function getValidationMessages(): array
     {
         return [
-            'sendTo.required' => 'Tujuan pengiriman harus diisi.',
+            'sendTo.required' => 'Tujuan pengiriman harus diisi. ',
             'numberSJN.required' => 'Nomor SJN harus diisi.',
             'numberSJN.unique' => 'Nomor SJN sudah digunakan. Gunakan nomor yang berbeda.',
             'numberRef.required' => 'Nomor referensi harus diisi.',
@@ -466,6 +708,8 @@ class AdminWebController extends Controller
             'description.*.max' => ':attribute maksimal 1000 karakter.',
             'unitType.*.required' => ':attribute harus diisi.',
             'unitType.*.exists' => ':attribute tidak valid.',
+            'driverName.max' => 'Nama driver maksimal 255 karakter.',
+            'vehicleNumber.max' => 'Nopol maksimal 20 karakter.',
         ];
     }
 
@@ -478,6 +722,7 @@ class AdminWebController extends Controller
         $fields = [
             'itemCode' => 'Kode barang',
             'itemName' => 'Nama barang',
+            'no' => 'No',
             'quantitySend' => 'Jumlah kirim',
             'totalSend' => 'Total kirim',
             'qtyPreOrder' => 'Qty PO',
@@ -491,6 +736,9 @@ class AdminWebController extends Controller
                 $attributes["{$field}.{$key}"] = "{$label} baris " . ($key + 1);
             }
         }
+
+        $attributes['driverName'] = 'Nama driver';
+        $attributes['vehicleNumber'] = 'No polisi';
 
         return $attributes;
     }
@@ -526,6 +774,8 @@ class AdminWebController extends Controller
             'po_number' => $validated['poNumber'],
             'project' => $validated['projectName'],
             'delivery_type' => $validated['deliveryType'],
+            'driver_name' => $validated['driverName'] ?? null,
+            'vehicle_number' => $validated['vehicleNumber'] ?? null,
             'status' => 'Belum terkirim',
         ]);
     }
@@ -561,6 +811,8 @@ class AdminWebController extends Controller
             'po_number' => $validated['poNumber'],
             'project' => $validated['projectName'],
             'delivery_type' => $validated['deliveryType'],
+            'driver_name' => $validated['driverName'] ?? null,
+            'vehicle_number' => $validated['vehicleNumber'] ?? null,
             // 'status' => 'Belum terkirim',
         ]);
     }
@@ -570,39 +822,63 @@ class AdminWebController extends Controller
      */
     private function createTravelDocumentItems(TravelDocument $travelDocument, array $validated): void
     {
-        $items = [];
+        foreach ($validated['itemCode'] as $idx => $itemCode) {
+            // qty_po (parent item) bisa int / string / '-'
+            $qtyPo = $validated['qtyPreOrder'][$idx] ?? null;
 
-        foreach ($validated['itemCode'] as $key => $itemCode) {
-            // Ambil qty_po, jika kosong atau '-' set sebagai null atau 0
-            $qtyPo = $validated['qtyPreOrder'][$key] ?? null;
-
-            // Jika qtyPo adalah '-' atau string non-numeric, simpan sebagai string
-            // Jika numeric, convert ke integer
-            // Jika null/empty, set sebagai null
-            if ($qtyPo === null || $qtyPo === '' || trim($qtyPo) === '') {
+            if ($qtyPo === null || $qtyPo === '' || trim((string) $qtyPo) === '') {
                 $qtyPo = null;
             } elseif ($qtyPo === '-' || !is_numeric($qtyPo)) {
-                // Simpan sebagai string (untuk symbol seperti '-')
-                $qtyPo = trim($qtyPo);
+                $qtyPo = trim((string) $qtyPo);
             } else {
-                // Convert ke integer jika numeric
                 $qtyPo = (int) $qtyPo;
             }
 
-            $items[] = [
-                'travel_document_id' => $travelDocument->id,
+            // Create parent item (butuh ID untuk sub items)
+            $item = $travelDocument->items()->create([
                 'item_code' => $itemCode,
-                'item_name' => $validated['itemName'][$key],
-                'qty_send' => $validated['quantitySend'][$key] ?? 0,
-                'total_send' => (int) $validated['totalSend'][$key],
+                'item_name' => $validated['itemName'][$idx],
+                'no' => $validated['no'][$idx] ?? null,
+                'qty_send' => $validated['quantitySend'][$idx] ?? 0,
+                'total_send' => (int) $validated['totalSend'][$idx],
                 'qty_po' => $qtyPo,
-                'unit_id' => $validated['unitType'][$key],
-                'description' => $this->normalizeDescription($validated['description'][$key] ?? null),
-                'information' => $validated['information'][$key] ?? null,
-            ];
-        }
+                'unit_id' => $validated['unitType'][$idx],
+                'description' => $this->normalizeDescription($validated['description'][$idx] ?? null),
+                'information' => $validated['information'][$idx] ?? null,
+                'sub_item_group_title' => $validated['subItemGroupTitle'][$idx] ?? null,
+            ]);
 
-        $travelDocument->items()->createMany($items);
+            // ===== Sub Items =====
+            $subRows = $validated['subItems'][$idx] ?? [];
+
+            $cleanSub = collect($subRows)
+                ->filter(fn($row) => is_array($row))
+                ->map(function ($row) {
+                    $desc = trim((string) ($row['description'] ?? ''));
+
+                    $qtyPo = $row['qty_po'] ?? null;
+                    $qtyPo = $qtyPo === null || trim((string) $qtyPo) === '' ? null : (string) $qtyPo;
+
+                    return [
+                        'item_code' => trim((string) ($row['item_code'] ?? '')),
+                        'item_name' => trim((string) ($row['item_name'] ?? '')),
+                        'qty_send' => (int) ($row['qty_send'] ?? 0),
+                        'total_send' => (int) ($row['total_send'] ?? 0),
+                        'qty_po' => $qtyPo,
+                        'unit_id' => (int) ($row['unit_id'] ?? 0),
+                        'description' => $desc === '' ? '-' : $desc,
+                        'information' => $row['information'] ?? null,
+                    ];
+                })
+                // anggap baris kosong = tidak disimpan
+                ->filter(fn($r) => $r['item_code'] !== '' && $r['item_name'] !== '')
+                ->values()
+                ->all();
+
+            if (!empty($cleanSub)) {
+                $item->subItems()->createMany($cleanSub);
+            }
+        }
     }
 
     /**
@@ -615,20 +891,24 @@ class AdminWebController extends Controller
         return $normalized === '' ? '-' : $normalized;
     }
 
-
     /**
      * Handle shipping error consistently and provide user-friendly feedback.
      */
     private function handleShippingError(\Throwable $exception, string $userMessage, array $context = [])
     {
-        Log::error('Shipping operation failed.', array_merge($context, [
-            'exception_message' => $exception->getMessage(),
-            'exception_class' => get_class($exception),
-            'file' => $exception->getFile(),
-            'line' => $exception->getLine(),
-        ]));
+        Log::error(
+            'Shipping operation failed.',
+            array_merge($context, [
+                'exception_message' => $exception->getMessage(),
+                'exception_class' => get_class($exception),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+            ]),
+        );
 
-        return redirect()->back()->with('error', $userMessage . ' Silakan coba lagi atau hubungi admin jika masalah berlanjut.');
+        return redirect()
+            ->back()
+            ->with('error', $userMessage . ' Silakan coba lagi atau hubungi admin jika masalah berlanjut.');
     }
 
     /**
@@ -673,16 +953,9 @@ class AdminWebController extends Controller
      */
     public function shippingsTrash()
     {
-        $trashedDocuments = TravelDocument::onlyTrashed()
-            ->with('items')
-            ->orderBy('deleted_at', 'desc')
-            ->paginate(10);
+        $trashedDocuments = TravelDocument::onlyTrashed()->with('items')->orderBy('deleted_at', 'desc')->paginate(10);
 
-        $breadcrumbs = [
-            ['label' => 'Home', 'url' => route('shippings.index')],
-            ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')],
-            ['label' => 'Trash', 'url' => '#']
-        ];
+        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')], ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')], ['label' => 'Trash', 'url' => '#']];
 
         return view('General.shippings-trash', compact('trashedDocuments', 'breadcrumbs'));
     }
@@ -698,32 +971,21 @@ class AdminWebController extends Controller
         return redirect()->route('shippings.trash')->with('success', 'Data pengiriman berhasil direstore.');
     }
 
-    public function shippingsReport($id) {
+    public function shippingsReport($id)
+    {
         $travelDocument = TravelDocument::findOrFail($id);
         $confirmation = DeliveryConfirmation::where('travel_document_id', $id)->first();
-        $tracking = TrackingSystem::where('travel_document_id', $id)
-            ->with('track.locations')
-            ->first();
+        $tracking = TrackingSystem::where('travel_document_id', $id)->with('track.locations')->first();
         $startTime = null;
         $endTime = null;
 
         if ($tracking && $tracking->track && $tracking->track->locations->isNotEmpty()) {
             $startTime = $tracking->track->locations->first()->created_at;
-            $endTime   = $tracking->track->locations->last()->created_at;
+            $endTime = $tracking->track->locations->last()->created_at;
         }
 
-        $breadcrumbs = [
-            ['label' => 'Home', 'url' => route('shippings.index')],
-            ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')],
-            ['label' => 'Shipping Report', 'url' => '#'],
-        ];
+        $breadcrumbs = [['label' => 'Home', 'url' => route('shippings.index')], ['label' => 'Manajemen Pengiriman', 'url' => route('shippings.index')], ['label' => 'Shipping Report', 'url' => '#']];
 
-        return view('General.shippings-report', compact(
-            'travelDocument',
-            'confirmation',
-            'startTime',
-            'endTime',
-            'breadcrumbs'
-        ));
+        return view('General.shippings-report', compact('travelDocument', 'confirmation', 'startTime', 'endTime', 'breadcrumbs'));
     }
 }

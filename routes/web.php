@@ -70,6 +70,8 @@ Route::middleware(['auth'])->group(function () {
             // Route::get('/trash', [AdminWebController::class, 'shippingsTrash'])->name('trash');
             Route::post('/{id}/restore', [AdminWebController::class, 'shippingsRestore'])->name('restore');
             Route::get('/{id}/report', [AdminWebController::class, 'shippingsReport'])->name('report');
+            Route::get('/{id}/report/print', [AdminWebController::class, 'printReport'])->name('print-report');
+
         });
 
     // Tracking Routes

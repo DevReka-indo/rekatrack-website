@@ -16,7 +16,6 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
-
 class DriverController extends Controller
 {
     public function forgotPassword(Request $request)
@@ -29,9 +28,12 @@ class DriverController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
-            return response()->json([
-                'message' => 'Email tidak ditemukan.',
-            ], 404);
+            return response()->json(
+                [
+                    'message' => 'Email tidak ditemukan.',
+                ],
+                404,
+            );
         }
 
         $user->update([
@@ -45,7 +47,8 @@ class DriverController extends Controller
 
     public function showTravelDocuments()
     {
-        $suratJalanList = TravelDocument::with('items')->get();
+        // $suratJalanList = TravelDocument::with('items')->get();
+        $suratJalanList = TravelDocument::with(['items', 'driver:id,name'])->get();
 
         return response()->json([
             'data' => $suratJalanList,
@@ -54,12 +57,20 @@ class DriverController extends Controller
 
     public function showDetailTravelDocument($id)
     {
-        $suratJalan = TravelDocument::where('id', $id)->with(['items'])->first();
+        // $suratJalan = TravelDocument::where('id', $id)
+        //     ->with(['items'])
+        //     ->first();
+        $suratJalan = TravelDocument::where('id', $id)
+            ->with(['items', 'driver:id,name'])
+            ->first();
 
         if (!$suratJalan) {
-            return response()->json([
-                'message' => 'Surat jalan tidak ditemukan.',
-            ], 404);
+            return response()->json(
+                [
+                    'message' => 'Surat jalan tidak ditemukan.',
+                ],
+                404,
+            );
         }
 
         return response()->json([
@@ -87,9 +98,7 @@ class DriverController extends Controller
         $responses = [];
 
         foreach ($request->travel_document_id as $documentId) {
-
             $result = DB::transaction(function () use ($documentId, $driverId, $lat, $lng) {
-
                 // lock dokumen biar tidak race jika 2 shipment update bareng
                 $travelDocument = TravelDocument::where('id', $documentId)->lockForUpdate()->first();
 
@@ -117,30 +126,26 @@ class DriverController extends Controller
 
                 if ($isOutTown) {
                     // LUAR KOTA
-                    $MIN_DISTANCE_KM = 1.0;             // 1 KM (FIX)
-                    $MIN_TIME_INTERVAL_SECONDS = 1800;  // 30 menit
-                    $MIN_STOP_TIME_SECONDS = 600;       // 10 menit
+                    $MIN_DISTANCE_KM = 1.0; // 1 KM (FIX)
+                    $MIN_TIME_INTERVAL_SECONDS = 1800; // 30 menit
+                    $MIN_STOP_TIME_SECONDS = 600; // 10 menit
                 } else {
                     // DALAM KOTA
-                    $MIN_DISTANCE_KM = 0.005;           // 5 meter
-                    $MIN_TIME_INTERVAL_SECONDS = 30;    // 30 detik
-                    $MIN_STOP_TIME_SECONDS = 60;        // 60 detik
+                    $MIN_DISTANCE_KM = 0.005; // 5 meter
+                    $MIN_TIME_INTERVAL_SECONDS = 30; // 30 detik
+                    $MIN_STOP_TIME_SECONDS = 60; // 60 detik
                 }
 
                 // =========================
                 // Ambil / buat session per dokumen (TrackingSystem dulu)
                 // =========================
-                $trackingSystem = TrackingSystem::where('travel_document_id', $documentId)
-                    ->where('status', 'active')
-                    ->orderByDesc('time_stamp')
-                    ->lockForUpdate()
-                    ->first();
+                $trackingSystem = TrackingSystem::where('travel_document_id', $documentId)->where('status', 'active')->orderByDesc('time_stamp')->lockForUpdate()->first();
 
                 if ($trackingSystem && $trackingSystem->track) {
                     $track = $trackingSystem->track;
 
                     // pastikan track driver benar + aktif
-                    if ((int)$track->driver_id !== (int)$driverId) {
+                    if ((int) $track->driver_id !== (int) $driverId) {
                         // kalau ternyata track milik driver lain (data kotor), buat baru
                         $track = null;
                     } elseif ($track->status !== 'active') {
@@ -179,20 +184,13 @@ class DriverController extends Controller
                 // =========================
                 // Ambil lokasi terakhir (KHUSUS track milik dokumen ini)
                 // =========================
-                $lastLocation = Location::where('track_id', $track->id)
-                    ->orderByDesc('time_stamp')
-                    ->first();
+                $lastLocation = Location::where('track_id', $track->id)->orderByDesc('time_stamp')->first();
 
                 $distanceFromLastKm = 0.0;
                 $secondsDiff = null;
 
                 if ($lastLocation) {
-                    $distanceFromLastKm = $this->calculateDistance(
-                        (float)$lastLocation->latitude,
-                        (float)$lastLocation->longitude,
-                        $lat,
-                        $lng
-                    );
+                    $distanceFromLastKm = $this->calculateDistance((float) $lastLocation->latitude, (float) $lastLocation->longitude, $lat, $lng);
 
                     $secondsDiff = now()->diffInSeconds(Carbon::parse($lastLocation->time_stamp));
 
@@ -204,9 +202,7 @@ class DriverController extends Controller
                         return [
                             'travel_document_id' => $documentId,
                             'track_id' => $track->id,
-                            'message' => $isOutTown
-                                ? 'Luar kota: terlalu dekat & interval belum cukup, tidak disimpan.'
-                                : 'Dalam kota: terlalu dekat & terlalu cepat, tidak disimpan.',
+                            'message' => $isOutTown ? 'Luar kota: terlalu dekat & interval belum cukup, tidak disimpan.' : 'Dalam kota: terlalu dekat & terlalu cepat, tidak disimpan.',
                             'distance_m' => round($distanceFromLastKm * 1000, 1),
                             'seconds_diff' => $secondsDiff,
                             'status' => 'skipped',
@@ -232,10 +228,34 @@ class DriverController extends Controller
                 ]);
 
                 // start_time dan status
+                // $updates = ['status' => 'Sedang dikirim'];
+                // if (is_null($travelDocument->start_time)) {
+                //     $updates['start_time'] = now();
+                // }
+                // $travelDocument->update($updates);
+                // start_time, status, dan driver_id
                 $updates = ['status' => 'Sedang dikirim'];
+
+                // hanya set driver saat pengiriman benar-benar mulai
                 if (is_null($travelDocument->start_time)) {
                     $updates['start_time'] = now();
+                    $updates['driver_id'] = $driverId; // ✅ catat driver pertama yang memulai
+                } else {
+                    // opsional: kalau sudah mulai tapi driver_id masih null (data lama), isi sekali
+                    if (is_null($travelDocument->driver_id)) {
+                        $updates['driver_id'] = $driverId;
+                    }
+
+                    // opsional ketat: kalau sudah ada driver_id dan beda driver, tolak
+                    // if (!is_null($travelDocument->driver_id) && (int)$travelDocument->driver_id !== (int)$driverId) {
+                    //     return [
+                    //         'travel_document_id' => $documentId,
+                    //         'message' => 'Surat jalan sudah diambil driver lain.',
+                    //         'status' => 'error',
+                    //     ];
+                    // }
                 }
+
                 $travelDocument->update($updates);
 
                 return [
@@ -252,13 +272,14 @@ class DriverController extends Controller
             $responses[] = $result;
         }
 
-        return response()->json([
-            'message' => 'Proses pengiriman lokasi selesai.',
-            'data' => $responses,
-        ], 201);
+        return response()->json(
+            [
+                'message' => 'Proses pengiriman lokasi selesai.',
+                'data' => $responses,
+            ],
+            201,
+        );
     }
-
-
 
     public function updateStatusSendSJN(Request $request)
     {
@@ -272,9 +293,7 @@ class DriverController extends Controller
         $responses = [];
 
         foreach ($request->travel_document_id as $documentId) {
-            $trackingSystem = TrackingSystem::where('travel_document_id', $documentId)
-                ->orderBy('time_stamp', 'desc')
-                ->first();
+            $trackingSystem = TrackingSystem::where('travel_document_id', $documentId)->orderBy('time_stamp', 'desc')->first();
 
             if (!$trackingSystem) {
                 $responses[] = [
@@ -307,9 +326,7 @@ class DriverController extends Controller
                     'time_stamp' => now(),
                 ]);
 
-                $allNonActive = $trackingSystem->track->trackingSystems()
-                    ->where('status', '!=', 'non-active')
-                    ->count() === 0;
+                $allNonActive = $trackingSystem->track->trackingSystems()->where('status', '!=', 'non-active')->count() === 0;
 
                 if ($allNonActive && $trackingSystem->track->status !== 'non-active') {
                     $trackingSystem->track->update(['status' => 'non-active']);
@@ -331,7 +348,6 @@ class DriverController extends Controller
 
     public function completeDelivery(Request $request)
     {
-
         Log::info('completeDelivery payload', $request->all());
 
         $request->validate([
@@ -342,7 +358,9 @@ class DriverController extends Controller
             'receiver_name' => 'required|string|max:255',
             'received_at' => 'required|date',
             'note' => 'nullable|string',
-            'photo_path' => 'required|string|max:255',
+            'photo_paths' => 'required|array|min:1',
+            'photo_paths.*' => 'required|string|max:255',
+            // 'photo_path' => 'required|string|max:255',
         ]);
 
         $responses = [];
@@ -351,8 +369,8 @@ class DriverController extends Controller
             $tracking = Track::whereHas('trackingSystems', function ($query) use ($travelDocumentId) {
                 $query->where('travel_document_id', $travelDocumentId);
             })
-            ->latest()
-            ->first();
+                ->latest()
+                ->first();
 
             if (!$tracking) {
                 $responses[] = [
@@ -387,28 +405,30 @@ class DriverController extends Controller
 
             $tracking->update(['status' => 'non-active']);
 
-            $receivedAt = Carbon::parse($request->received_at)
-                ->setTimezone(config('app.timezone'))
-                ->format('Y-m-d H:i:s');
+            $receivedAt = Carbon::parse($request->received_at)->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s');
 
-            DeliveryConfirmation::create([
+            // DeliveryConfirmation::create([
+            //     'travel_document_id' => $travelDocumentId,
+            //     'receiver_name' => $request->receiver_name,
+            //     'received_at' => $receivedAt,
+            //     'note' => $request->note,
+            //     'photo_path' => $request->photo_path,
+            // ]);
+            $confirmation = DeliveryConfirmation::create([
                 'travel_document_id' => $travelDocumentId,
                 'receiver_name' => $request->receiver_name,
                 'received_at' => $receivedAt,
                 'note' => $request->note,
-                'photo_path' => $request->photo_path,
+                // 'photo_path' => ... (opsional: bisa dihapus kalau kolomnya mau kamu drop nanti)
             ]);
 
+            $confirmation->photos()->createMany(collect($request->photo_paths)->map(fn($p) => ['photo_path' => $p])->toArray());
+
             // PERBAIKAN: Ambil last location untuk hitung distance
-            $lastLocation = Location::where('track_id', $tracking->id)
-                ->orderBy('time_stamp', 'desc')
-                ->first();
+            $lastLocation = Location::where('track_id', $tracking->id)->orderBy('time_stamp', 'desc')->first();
             $distanceFromLast = 0;
             if ($lastLocation) {
-                $distanceFromLast = $this->calculateDistance(
-                    $lastLocation->latitude, $lastLocation->longitude,
-                    $request->latitude, $request->longitude
-                );
+                $distanceFromLast = $this->calculateDistance($lastLocation->latitude, $lastLocation->longitude, $request->latitude, $request->longitude);
             }
 
             // Simpan lokasi terakhir sebagai penanda selesai (opsional tapi baik)
@@ -447,7 +467,7 @@ class DriverController extends Controller
             return response()->json(['message' => 'ID tidak valid'], 400);
         }
 
-        $travelDocument = TravelDocument::where('id', (int)$id)
+        $travelDocument = TravelDocument::where('id', (int) $id)
             ->with('items') // jika ada relasi items
             ->first();
 
@@ -461,23 +481,29 @@ class DriverController extends Controller
     public function uploadDeliveryPhoto(Request $request)
     {
         if (!$request->hasFile('photo')) {
-            return response()->json([
-                'message' => 'Photo gagal diunggah.',
-                'data' => [
-                    'errors' => ['photo' => ['File tidak terkirim (photo missing).']]
-                ]
-            ], 422);
+            return response()->json(
+                [
+                    'message' => 'Photo gagal diunggah.',
+                    'data' => [
+                        'errors' => ['photo' => ['File tidak terkirim (photo missing).']],
+                    ],
+                ],
+                422,
+            );
         }
 
         $file = $request->file('photo');
 
         if (!$file->isValid()) {
-            return response()->json([
-                'message' => 'Photo gagal diunggah.',
-                'data' => [
-                    'errors' => ['photo' => ['File tidak valid.']]
-                ]
-            ], 422);
+            return response()->json(
+                [
+                    'message' => 'Photo gagal diunggah.',
+                    'data' => [
+                        'errors' => ['photo' => ['File tidak valid.']],
+                    ],
+                ],
+                422,
+            );
         }
 
         $request->validate([
@@ -491,16 +517,13 @@ class DriverController extends Controller
         ]);
     }
 
-
     // fungsi bantu untuk menghitung jarak antara dua koordinat (Haversine Formula)
     private function calculateDistance($lat1, $lon1, $lat2, $lon2): float
     {
         $R = 6371; // Radius bumi dalam km
         $latDiff = deg2rad($lat2 - $lat1);
         $lonDiff = deg2rad($lon2 - $lon1);
-        $a = sin($latDiff / 2) * sin($latDiff / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($lonDiff / 2) * sin($lonDiff / 2);
+        $a = sin($latDiff / 2) * sin($latDiff / 2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDiff / 2) * sin($lonDiff / 2);
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
         return $R * $c;
     }
@@ -509,10 +532,13 @@ class DriverController extends Controller
     {
         $confirmation = DeliveryConfirmation::where('travel_document_id', $id)->first();
         if (!$confirmation) {
-            return response()->json([
-                'message' => 'Bukti pengiriman tidak ditemukan untuk surat jalan ini',
-                'error' => 'not_found'
-            ], 404);
+            return response()->json(
+                [
+                    'message' => 'Bukti pengiriman tidak ditemukan untuk surat jalan ini',
+                    'error' => 'not_found',
+                ],
+                404,
+            );
         }
 
         return response()->json([
