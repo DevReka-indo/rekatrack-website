@@ -118,38 +118,44 @@
             <p style="font-size: 1.125rem; font-weight: bold; margin: 0;">No: {{ $travelDocument->no_travel_document }}</p>
         </div>
 
-        <!-- Info Pengiriman -->
+        {{-- info pengiriman --}}
         <table style="width: 100%; margin-bottom: 1rem;">
             <tr>
                 <td style="width: 50%; vertical-align: top; padding-right: 2rem;">
                     <table style="width: 100%;">
                         <tr>
-                            <td style="font-size: 0.75rem; font-weight: bold; width: 110px;">Proyek</td>
-                            <td style="font-size: 0.75rem;">: {{ $travelDocument->project }}</td>
+                            <td style="font-size: 0.75rem; font-weight: bold; width: 60px; padding-bottom: 8px; vertical-align: top;">Proyek</td>
+                            <td style="font-size: 0.75rem; width: 10px; padding-bottom: 8px; vertical-align: top;">:</td>
+                            <td style="font-size: 0.75rem; padding-bottom: 8px;">{{ $travelDocument->project }}</td>
                         </tr>
                         <tr>
-                            <td style="font-size: 0.75rem; font-weight: bold; width: 110px;">Kepada</td>
-                            <td style="font-size: 0.75rem;">: {{ $travelDocument->send_to }}</td>
+                            <td style="font-size: 0.75rem; font-weight: bold; width: 60px; padding-bottom: 8px; vertical-align: top;">Kepada</td>
+                            <td style="font-size: 0.75rem; width: 10px; padding-bottom: 8px; vertical-align: top;">:</td>
+                            <td style="font-size: 0.75rem; padding-bottom: 8px;">{{ $travelDocument->send_to }}</td>
                         </tr>
                         <tr>
-                            <td style="font-size: 0.75rem; font-weight: bold; width: 110px;">Tanggal</td>
-                            <td style="font-size: 0.75rem;">: {{ \Carbon\Carbon::parse($travelDocument->document_date)->format('d/m/Y') }}</td>
+                            <td style="font-size: 0.75rem; font-weight: bold; width: 60px; padding-bottom: 8px; vertical-align: top;">Tanggal</td>
+                            <td style="font-size: 0.75rem; width: 10px; padding-bottom: 8px; vertical-align: top;">:</td>
+                            <td style="font-size: 0.75rem; padding-bottom: 8px;">{{ \Carbon\Carbon::parse($travelDocument->document_date)->format('d/m/Y') }}</td>
                         </tr>
-                        <tr>
-                            <td style="font-size: 0.75rem; font-weight: bold; width: 110px;">Jumlah Halaman</td>
-                            <td style="font-size: 0.75rem;">: 1 dari 1</td>
-                        </tr>
+                        {{-- <tr>
+                            <td style="font-size: 0.75rem; font-weight: bold; width: 60px; vertical-align: top;">Halaman</td>
+                            <td style="font-size: 0.75rem; width: 10px; vertical-align: top;">:</td>
+                            <td style="font-size: 0.75rem;">1 dari 1</td>
+                        </tr> --}}
                     </table>
                 </td>
-                <td style="width: 50%; vertical-align: top;">
+                <td style="width: 50%; vertical-align: top; padding-left: 2rem;">
                     <table style="width: 100%;">
                         <tr>
-                            <td style="font-size: 0.75rem; font-weight: bold; width: 50px;">PO</td>
-                            <td style="font-size: 0.75rem;">: {{ $travelDocument->po_number }}</td>
+                            <td style="font-size: 0.75rem; font-weight: bold; width: 40px; padding-bottom: 8px; vertical-align: top;">PO</td>
+                            <td style="font-size: 0.75rem; width: 10px; padding-bottom: 8px; vertical-align: top;">:</td>
+                            <td style="font-size: 0.75rem; padding-bottom: 8px;">{{ $travelDocument->po_number }}</td>
                         </tr>
                         <tr>
-                            <td style="font-size: 0.75rem; font-weight: bold; width: 50px;">Ref</td>
-                            <td style="font-size: 0.75rem;">: {{ $travelDocument->reference_number }}</td>
+                            <td style="font-size: 0.75rem; font-weight: bold; width: 40px; vertical-align: top;">Ref</td>
+                            <td style="font-size: 0.75rem; width: 10px; vertical-align: top;">:</td>
+                            <td style="font-size: 0.75rem;">{{ $travelDocument->reference_number }}</td>
                         </tr>
                     </table>
                 </td>
