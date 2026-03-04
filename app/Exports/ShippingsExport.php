@@ -3,202 +3,375 @@
 namespace App\Exports;
 
 use App\Models\TravelDocument;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use Carbon\Carbon;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class ShippingsExport implements
     FromCollection,
     WithHeadings,
-    WithMapping,
     WithStyles,
-    ShouldAutoSize
+    ShouldAutoSize,
+    WithEvents
 {
     protected $startDate;
     protected $endDate;
 
-    /**
-     * Constructor with optional date filters
-     */
+    // 1 SJN = 1 NO
+    private int $sjnNo = 1;
+
+    // range row per SJN buat merge
+    private array $docRowRanges = [];
+    private int $excelRowPointer = 2; // header row 1, data mulai row 2
+
     public function __construct($startDate = null, $endDate = null)
     {
         $this->startDate = $startDate;
-        $this->endDate = $endDate;
+        $this->endDate   = $endDate;
     }
 
-    /**
-     * Get collection of travel documents with filters
-     */
     public function collection()
     {
-        $query = TravelDocument::with(['items.unit'])
+        $query = TravelDocument::with([
+                'items.unit',
+                'items.subItems.unit',
+                'driver',
+            ])
             ->orderBy('posting_date', 'desc')
             ->orderBy('created_at', 'desc');
 
-        // Apply date filters
         $this->applyDateFilters($query);
 
-        return $query->get();
-    }
+        $docs = $query->get();
 
-    /**
-     * Define Excel column headings
-     */
-    public function headings(): array
-    {
-        return [
-            'No SJN',
-            'Tanggal SJN',
-            'Kepada',
-            'Nomor Referensi',
-            'Tanggal Referensi',
-            'Nomor PO',
-            'Proyek',
-            'Status',
-            'Kode Barang',
-            'Nama Barang',
-            'Tanggal Kirim',
-            'Tanggal Diterima',
-            'Qty Kirim',
-            'Qty PO',
-            'Total Kirim',
-            'Satuan',
-            'Keterangan'
-        ];
-    }
+        $rows = new Collection();
 
-    /**
-     * Map travel document data to Excel rows
-     */
-    public function map($travelDocument): array
-    {
-        $rows = [];
+        foreach ($docs as $doc) {
+            $startRow = $this->excelRowPointer;
+            $isFirstRowOfDoc = true;
 
-        if ($travelDocument->items->isEmpty()) {
-            $rows[] = $this->mapEmptyDocument($travelDocument);
-        } else {
-            foreach ($travelDocument->items as $item) {
-                $rows[] = $this->mapDocumentWithItem($travelDocument, $item);
+            // tetap tampil walau items kosong
+            if ($doc->items->isEmpty()) {
+                $rows->push($this->mapEmptyDocument($doc, $isFirstRowOfDoc));
+                $this->excelRowPointer++;
+
+                $endRow = $this->excelRowPointer - 1;
+                $this->docRowRanges[] = [$startRow, $endRow];
+                $this->sjnNo++;
+                continue;
             }
+
+            foreach ($doc->items as $index => $item) {
+                // ITEM
+                $rows->push($this->mapItemRow($doc, $item, $index, $isFirstRowOfDoc));
+                $this->excelRowPointer++;
+                $isFirstRowOfDoc = false;
+
+                // SUB ITEM (di bawah item)
+                if ($item->subItems && $item->subItems->isNotEmpty()) {
+                    foreach ($item->subItems as $sub) {
+                        $rows->push($this->mapSubItemRow($doc, $sub));
+                        $this->excelRowPointer++;
+                    }
+                }
+            }
+
+            $endRow = $this->excelRowPointer - 1;
+            $this->docRowRanges[] = [$startRow, $endRow];
+            $this->sjnNo++;
         }
 
         return $rows;
     }
 
     /**
-     * Apply styles to Excel worksheet
+     * URUTAN KOLOM FINAL:
+     * A NO
+     * B TANGGAL SJN
+     * C NOMOR SJN
+     * D KEPADA
+     * E PROYEK
+     * F NO ITEM
+     * G NAMA BARANG
+     * H KODE BARANG
+     * I QTY KIRIM
+     * J TOTAL KIRIM
+     * K QTY PO
+     * L SATUAN
+     * M KETERANGAN
+     * N NOMOR REFERENSI
+     * O TANGGAL REFERENSI
+     * P NO PO
+     * Q TANGGAL KIRIM
+     * R TANGGAL DITERIMA
+     * S PENGIRIM
+     * T STATUS
      */
-    public function styles(Worksheet $sheet)
+    public function headings(): array
     {
         return [
-            // Style for header row
-            1 => [
-                'font' => [
-                    'bold' => true,
-                    'size' => 12,
-                ],
-                'fill' => [
-                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => 'E2EFDA']
-                ],
-                'alignment' => [
-                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
-                ],
-            ],
+            'NO',
+            'TANGGAL SJN',
+            'NOMOR SJN',
+            'KEPADA',
+            'PROYEK',
+            'NO ITEM',
+            'NAMA BARANG',
+            'KODE BARANG',
+            'QTY KIRIM',
+            'TOTAL KIRIM',
+            'QTY PO',
+            'SATUAN',
+            'KETERANGAN',
+            'NOMOR REFERENSI',
+            'TANGGAL REFERENSI',
+            'NO PO',
+            'TANGGAL KIRIM',
+            'TANGGAL DITERIMA',
+            'PENGIRIM',
+            'STATUS',
         ];
     }
 
-    // ========================================
-    // PRIVATE HELPER METHODS
-    // ========================================
-
     /**
-     * Apply date filters to query
+     * Header style (warna)
      */
+    public function styles(Worksheet $sheet)
+    {
+        $sheet->getStyle('A1:T1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+                'size' => 12,
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '1F4E78'], // biru header
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        return [];
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+
+                // Merge vertikal per SJN (kolom dokumen)
+                // A NO, B TGL SJN, C NOMOR SJN, D KEPADA, E PROYEK,
+                // N NOMOR REF, O TGL REF, P NO PO,
+                // S PENGIRIM, T STATUS
+                $mergeCols = ['A', 'B', 'C', 'D', 'E', 'N', 'O', 'P', 'S', 'T'];
+
+                foreach ($this->docRowRanges as [$startRow, $endRow]) {
+                    if ($endRow <= $startRow) continue;
+
+                    foreach ($mergeCols as $col) {
+                        $event->sheet->mergeCells("{$col}{$startRow}:{$col}{$endRow}");
+                        $event->sheet->getStyle("{$col}{$startRow}")
+                            ->getAlignment()
+                            ->setVertical(Alignment::VERTICAL_CENTER);
+                    }
+                }
+
+                // Warna status (kolom T)
+                $highestRow = $event->sheet->getHighestRow();
+
+                for ($row = 2; $row <= $highestRow; $row++) {
+                    $cell = "T{$row}";
+                    $status = trim((string) $event->sheet->getCell($cell)->getValue());
+
+                    if ($status === 'Terkirim') {
+                        $event->sheet->getStyle($cell)->applyFromArray([
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => 'C6EFCE'], // hijau soft
+                            ],
+                            'font' => [
+                                'bold' => true,
+                                'color' => ['rgb' => '006100'],
+                            ],
+                            'alignment' => [
+                                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                                'vertical' => Alignment::VERTICAL_CENTER,
+                            ],
+                        ]);
+                    } elseif ($status === 'Belum terkirim') {
+                        $event->sheet->getStyle($cell)->applyFromArray([
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => 'F8CBAD'], // merah soft
+                            ],
+                            'font' => [
+                                'bold' => true,
+                                'color' => ['rgb' => '9C0006'],
+                            ],
+                            'alignment' => [
+                                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                                'vertical' => Alignment::VERTICAL_CENTER,
+                            ],
+                        ]);
+                    } elseif ($status === 'Sedang dikirim') {
+                        $event->sheet->getStyle($cell)->applyFromArray([
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => 'BDD7EE'], // biru soft
+                            ],
+                            'font' => [
+                                'bold' => true,
+                                'color' => ['rgb' => '1F4E78'],
+                            ],
+                            'alignment' => [
+                                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                                'vertical' => Alignment::VERTICAL_CENTER,
+                            ],
+                        ]);
+                    }
+                }
+
+                // Rapihin
+                $event->sheet->freezePane('A2');
+                $event->sheet->setAutoFilter('A1:T1');
+            },
+        ];
+    }
+
+    // =========================
+    // Row mapping (sesuai urutan final)
+    // =========================
+
+    private function mapEmptyDocument($doc, bool $isFirstRowOfDoc): array
+    {
+        return [
+            $isFirstRowOfDoc ? $this->sjnNo : '',
+            $this->formatDate($doc->posting_date),
+            $doc->no_travel_document ?? '',
+            $doc->send_to ?? '',
+            $doc->project ?? '',
+            '', // NO ITEM
+            '', // NAMA BARANG
+            '', // KODE BARANG
+            '', // QTY KIRIM
+            '', // TOTAL KIRIM
+            '', // QTY PO
+            '', // SATUAN
+            '', // KETERANGAN
+            $doc->reference_number ?? '',
+            $this->formatDate($doc->reference_date),
+            $doc->po_number ?? '',
+            $doc->start_time ? $this->formatDateTime($doc->start_time) : '',
+            $doc->end_time ? $this->formatDateTime($doc->end_time) : '',
+            $this->getSender($doc),
+            $doc->status ?? '',
+        ];
+    }
+
+    private function mapItemRow($doc, $item, int $index, bool $isFirstRowOfDoc): array
+    {
+        return [
+            $isFirstRowOfDoc ? $this->sjnNo : '',
+            $this->formatDate($doc->posting_date),
+            $doc->no_travel_document ?? '',
+            $doc->send_to ?? '',
+            $doc->project ?? '',
+            $this->resolveItemNo($item, $index),
+            $item->item_name ?? '', // NAMA BARANG
+            $item->item_code ?? '', // KODE BARANG
+            $item->qty_send ?? 0,
+            $item->total_send ?? 0,
+            $item->qty_po ?? 0,
+            $item->unit?->name ?? '',
+            $item->information ?? '',
+            $doc->reference_number ?? '',
+            $this->formatDate($doc->reference_date),
+            $doc->po_number ?? '',
+            $doc->start_time ? $this->formatDateTime($doc->start_time) : '',
+            $doc->end_time ? $this->formatDateTime($doc->end_time) : '',
+            $this->getSender($doc),
+            $doc->status ?? '',
+        ];
+    }
+
+    private function mapSubItemRow($doc, $sub): array
+    {
+        return [
+            '', // NO kosong (1 SJN 1 NO)
+            $this->formatDate($doc->posting_date),
+            $doc->no_travel_document ?? '',
+            $doc->send_to ?? '',
+            $doc->project ?? '',
+            '', // NO ITEM kosong untuk sub item
+            $sub->item_name ?? '', // NAMA BARANG
+            $sub->item_code ?? '', // KODE BARANG
+            $sub->qty_send ?? 0,
+            $sub->total_send ?? 0,
+            $sub->qty_po ?? 0,
+            $sub->unit?->name ?? '',
+            $sub->information ?? '',
+            $doc->reference_number ?? '',
+            $this->formatDate($doc->reference_date),
+            $doc->po_number ?? '',
+            $doc->start_time ? $this->formatDateTime($doc->start_time) : '',
+            $doc->end_time ? $this->formatDateTime($doc->end_time) : '',
+            $this->getSender($doc),
+            $doc->status ?? '',
+        ];
+    }
+
+    // =========================
+    // Helpers
+    // =========================
+
     private function applyDateFilters($query): void
     {
         if ($this->startDate && $this->endDate) {
-            // Filter by date range
             $query->whereBetween('posting_date', [
                 Carbon::parse($this->startDate)->startOfDay(),
-                Carbon::parse($this->endDate)->endOfDay()
+                Carbon::parse($this->endDate)->endOfDay(),
             ]);
         } elseif ($this->startDate) {
-            // Filter from start date onwards
             $query->where('posting_date', '>=', Carbon::parse($this->startDate)->startOfDay());
         } elseif ($this->endDate) {
-            // Filter up to end date
             $query->where('posting_date', '<=', Carbon::parse($this->endDate)->endOfDay());
         }
     }
 
-    /**
-     * Map travel document without items
-     */
-    private function mapEmptyDocument($travelDocument): array
+    private function resolveItemNo($item, int $index): string
     {
-        return [
-            $travelDocument->no_travel_document,
-            $this->formatDate($travelDocument->posting_date),
-            $travelDocument->send_to,
-            $travelDocument->reference_number,
-            $this->formatDate($travelDocument->reference_date),
-            $travelDocument->po_number,
-            $travelDocument->project,
-            $travelDocument->status,
-            '', // item_code
-            '', // item_name
-            $travelDocument->start_time ? $this->formatDateTime($travelDocument->start_time) : '',
-            $travelDocument->end_time ? $this->formatDateTime($travelDocument->end_time) : '',
-            '', // qty_send
-            '', // qty_po
-            '', // total_send
-            '', // unit
-            ''  // information
-        ];
+        $val = $item->no ?? null;
+        if ($val !== null && trim((string) $val) !== '') return (string) $val;
+        return (string) ($index + 1);
     }
 
-    /**
-     * Map travel document with its item
-     */
-    private function mapDocumentWithItem($travelDocument, $item): array
+    private function getSender($doc): string
     {
-        return [
-            $travelDocument->no_travel_document,
-            $this->formatDate($travelDocument->posting_date),
-            $travelDocument->send_to,
-            $travelDocument->reference_number,
-            $this->formatDate($travelDocument->reference_date),
-            $travelDocument->po_number,
-            $travelDocument->project,
-            $travelDocument->status,
-            $item->item_code ?? '',
-            $item->item_name ?? '',
-            $this->formatDateTime($travelDocument->start_time) ? $this->formatDateTime($travelDocument->start_time) : '',
-            $this->formatDateTime($travelDocument->end_time) ? $this->formatDateTime($travelDocument->end_time) : '',
-            $item->qty_send ?? 0,
-            $item->qty_po ?? 0,
-            $item->total_send ?? 0,
-            $item->unit?->name ?? '—',
-            $item->information ?? ''
-        ];
+        // sesuai blade kamu:
+        // {{ $travelDocument->driver->name }} ({{ $travelDocument->driver->nip }})
+        if (isset($doc->driver) && $doc->driver) {
+            $name = $doc->driver->name ?? '';
+            $nip  = $doc->driver->nip ?? '';
+            if ($name !== '' && $nip !== '') return "{$name} ({$nip})";
+            return $name !== '' ? $name : '-';
+        }
+        return '-';
     }
 
-    /**
-     * Format date to Y-m-d format
-     */
     private function formatDate($date): string
     {
-        if (!$date) {
-            return '';
-        }
-
+        if (!$date) return '';
         try {
             return Carbon::parse($date)->format('Y-m-d');
         } catch (\Exception $e) {
@@ -206,15 +379,9 @@ class ShippingsExport implements
         }
     }
 
-    /**
-     * Format datetime to Y-m-d H:i format
-     */
     private function formatDateTime($dateTime): string
     {
-        if (!$dateTime) {
-            return '';
-        }
-
+        if (!$dateTime) return '';
         try {
             return Carbon::parse($dateTime)->format('Y-m-d H:i');
         } catch (\Exception $e) {

@@ -191,7 +191,7 @@
                             <td style="text-align: center;"><?php echo e($item->qty_po ?? '-'); ?></td>
                             <td style="text-align: center;"><?php echo e($item->unit->name ?? '-'); ?></td>
                             
-                            <td style="font-size: 0.72rem; vertical-align: middle; text-align: left; padding: 0.5rem 0.25rem;" rowspan="<?php echo e(1 + 1 + $item->subItems->count()); ?>"><?php echo e($item->information ?? '-'); ?></td>
+                            <td style="font-size: 0.72rem; vertical-align: middle; text-align: center; padding: 0.5rem 0.25rem;" rowspan="<?php echo e(1 + 1 + $item->subItems->count()); ?>"><?php echo e($item->information ?? '-'); ?></td>
                         </tr>
 
                         
@@ -249,7 +249,7 @@
                             <td style="text-align: center;"><?php echo e($item->total_send ?? '-'); ?></td>
                             <td style="text-align: center;"><?php echo e($item->qty_po ?? '-'); ?></td>
                             <td style="text-align: center;"><?php echo e($item->unit->name ?? '-'); ?></td>
-                            <td style="font-size: 0.72rem;"><?php echo e($item->information ?? '-'); ?></td>
+                            <td style="font-size: 0.72rem; text-align: center;"><?php echo e($item->information ?? '-'); ?></td>
                         </tr>
                     <?php endif; ?>
                 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>

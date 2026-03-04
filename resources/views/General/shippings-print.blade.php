@@ -190,7 +190,7 @@
                             <td style="text-align: center;">{{ $item->qty_po ?? '-' }}</td>
                             <td style="text-align: center;">{{ $item->unit->name ?? '-' }}</td>
                             {{-- Keterangan di-rowspan: 1 item utama + 1 group title + jumlah sub item --}}
-                            <td style="font-size: 0.72rem; vertical-align: middle; text-align: left; padding: 0.5rem 0.25rem;" rowspan="{{ 1 + 1 + $item->subItems->count() }}">{{ $item->information ?? '-' }}</td>
+                            <td style="font-size: 0.72rem; vertical-align: middle; text-align: center; padding: 0.5rem 0.25rem;" rowspan="{{ 1 + 1 + $item->subItems->count() }}">{{ $item->information ?? '-' }}</td>
                         </tr>
 
                         {{-- GROUP TITLE (setiap kolom tetap ada, isi hanya di kolom nama) --}}
@@ -245,7 +245,7 @@
                             <td style="text-align: center;">{{ $item->total_send ?? '-' }}</td>
                             <td style="text-align: center;">{{ $item->qty_po ?? '-' }}</td>
                             <td style="text-align: center;">{{ $item->unit->name ?? '-' }}</td>
-                            <td style="font-size: 0.72rem;">{{ $item->information ?? '-' }}</td>
+                            <td style="font-size: 0.72rem; text-align: center;">{{ $item->information ?? '-' }}</td>
                         </tr>
                     @endif
                 @endforeach
