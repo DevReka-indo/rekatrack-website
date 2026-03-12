@@ -860,7 +860,7 @@
                                         <div class="row g-2">
                                             <div class="col-4">
                                                 <label class="form-label">Qty Kirim</label>
-                                                <input type="number" name="quantitySend[]"
+                                                <input type="text" name="quantitySend[]"
                                                     value="{{ old("quantitySend.$index", $item['quantitySend']) }}"
                                                     class="form-control @error("quantitySend.$index") is-invalid @enderror"
                                                     placeholder="0" />
@@ -881,7 +881,7 @@
                                             <div class="col-4">
                                                 <label class="form-label">Total Kirim <span
                                                         class="req">*</span></label>
-                                                <input type="number" name="totalSend[]"
+                                                <input type="text" name="totalSend[]"
                                                     value="{{ old("totalSend.$index", $item['totalSend']) }}"
                                                     class="form-control @error("totalSend.$index") is-invalid @enderror"
                                                     placeholder="0" required />
@@ -976,7 +976,7 @@
                                                                         <div class="row g-2">
                                                                             <div class="col-4">
                                                                                 <label class="form-label">Qty Kirim</label>
-                                                                                <input type="number"
+                                                                                <input type="text"
                                                                                     class="form-control form-control-sm"
                                                                                     name="subItems[{{ $index }}][{{ $sIndex }}][qty_send]"
                                                                                     value="{{ $sub['qty_send'] ?? '' }}"
@@ -993,7 +993,7 @@
                                                                             <div class="col-4">
                                                                                 <label class="form-label">Total
                                                                                     Kirim</label>
-                                                                                <input type="number"
+                                                                                <input type="text"
                                                                                     class="form-control form-control-sm"
                                                                                     name="subItems[{{ $index }}][{{ $sIndex }}][total_send]"
                                                                                     value="{{ $sub['total_send'] ?? '' }}"
@@ -1068,7 +1068,7 @@
                                                                         <div class="row g-2">
                                                                             <div class="col-4">
                                                                                 <label class="form-label">Qty Kirim</label>
-                                                                                <input type="number"
+                                                                                <input type="text"
                                                                                     class="form-control form-control-sm"
                                                                                     name="subItems[{{ $index }}][{{ $sIndex }}][qty_send]"
                                                                                     value="{{ $sub['qty_send'] ?? '' }}"
@@ -1085,7 +1085,7 @@
                                                                             <div class="col-4">
                                                                                 <label class="form-label">Total
                                                                                     Kirim</label>
-                                                                                <input type="number"
+                                                                                <input type="text"
                                                                                     class="form-control form-control-sm"
                                                                                     name="subItems[{{ $index }}][{{ $sIndex }}][total_send]"
                                                                                     value="{{ $sub['total_send'] ?? '' }}"
@@ -1246,7 +1246,7 @@
               <div class="row g-2">
                 <div class="col-4">
                   <label class="form-label">Qty Kirim</label>
-                  <input type="number" class="form-control form-control-sm"
+                  <input type="text" class="form-control form-control-sm"
                     name="subItems[${itemIndex}][${subIndex}][qty_send]" placeholder="0">
                 </div>
                 <div class="col-4">
@@ -1256,7 +1256,7 @@
                 </div>
                 <div class="col-4">
                   <label class="form-label">Total Kirim</label>
-                  <input type="number" class="form-control form-control-sm"
+                  <input type="text" class="form-control form-control-sm"
                     name="subItems[${itemIndex}][${subIndex}][total_send]" placeholder="0">
                 </div>
                 <div class="col-12" style="padding-top:.25rem;">
@@ -1320,7 +1320,7 @@
                     <div class="row g-2">
                         <div class="col-4">
                         <label class="form-label">Qty Kirim</label>
-                        <input type="number" name="quantitySend[]" class="form-control" placeholder="0" />
+                        <input type="text" name="quantitySend[]" class="form-control" placeholder="0" />
                         </div>
                         <div class="col-4">
                         <label class="form-label">Qty PO</label>
@@ -1328,7 +1328,7 @@
                         </div>
                         <div class="col-4">
                         <label class="form-label">Total Kirim <span class="req">*</span></label>
-                        <input type="number" name="totalSend[]" class="form-control" placeholder="0" required />
+                        <input type="text" name="totalSend[]" class="form-control" placeholder="0" required />
                         </div>
                     </div>
                     </div>
