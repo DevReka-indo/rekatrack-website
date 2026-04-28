@@ -1190,7 +1190,7 @@
             // EVENT LISTENERS
             // ==========================
             addItemBtn.addEventListener('click', function() {
-                if (container.querySelectorAll('.item-row').length >= 50) return;
+                if (container.querySelectorAll('.item-row').length >= 150) return;
                 container.insertAdjacentHTML('beforeend', createNewItemRow());
                 updateTotalBarang();
                 reindexItems();

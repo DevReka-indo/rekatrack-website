@@ -699,7 +699,6 @@ class AdminWebController extends Controller
             'itemCode.*.required' => ':attribute harus diisi.',
             'itemName.*.required' => ':attribute harus diisi.',
             'totalSend.*.required' => ':attribute harus diisi.',
-
             'totalSend.*.max'    => ':attribute maksimal 50 karakter.',
             'quantitySend.*.max' => ':attribute maksimal 50 karakter.',
             'qtyPreOrder.*.string' => ':attribute harus berupa teks.',
